@@ -671,9 +671,9 @@
 ! Define initial variables for incident particle
       iqin=0             ! Incident particle charge - photons
       !xin=-ctdis*sin(csrad)+htl*cos(csrad)-transi*xl ! Source position
-      xin=-ctdis*sin(csrad)+htl*cos(csrad)*rnnow ! Source position
-      yin=0.0d0
-      zin=-ctdis*cos(csrad)-htl*sin(csrad)*rnnow
+      !xin=-ctdis*sin(csrad)+htl*cos(csrad)*rnnow ! Source position
+      !yin=0.0d0
+      !zin=-ctdis*cos(csrad)-htl*sin(csrad)*rnnow
       uin=sin(csrad)
       vin=0
       win=cos(csrad)
@@ -764,9 +764,9 @@
 !       ----------------------
         call randomset(rnnow)
 
-        xin=-ctdis*sin(csrad)+htl*cos(csrad)*rnnow ! Source position
+        xin=-ctdis*sin(csrad)+htl*cos(csrad)*(2 * rnnow - 1) ! Source position
         yin=0.0d0
-        zin=-ctdis*cos(csrad)-htl*sin(csrad)*rnnow
+        zin=-ctdis*cos(csrad)-htl*sin(csrad)*(2 * rnnow - 1)
 !       ---------------------
 !       calculation of totke
 !       ---------------------
