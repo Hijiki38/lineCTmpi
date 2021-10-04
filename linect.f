@@ -135,7 +135,7 @@
       deltae=0.0004d0     !delta energy of energy bin
       ctx=0.30d0
       cty=0.30d0
-      ctz=0.10d0
+      ctz=0.01d0
       maxpict=100
       npreci=3   ! PICT data mode for CGView in free format
       ifti=4     ! Input unit number for cg-data
@@ -300,7 +300,7 @@
         end do
       end do
 
-      chard(1) = 0.1d0
+      chard(1) = 0.01d0
       chard(2) = 0.1d0
       chard(3) = 0.1d0
       chard(4) = 0.1d0
