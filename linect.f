@@ -59,7 +59,7 @@
       include 'auxcommons/geom_common.f'   ! geom-common file
       integer irinn
       integer,parameter :: maxch = 1000    !max channel of the detector
-      integer,parameter :: maxtrans = 150 !max translation times
+      integer,parameter :: maxtrans = 4096 !150 !max translation times
       integer,parameter :: maxspec = 18000  !max row of source.csv
 
       common/totals/depe(4096),deltae,maxpict,transi
@@ -381,7 +381,23 @@
       cti=1
       nor=1
 
-
+!-----------------------------------------------
+!Detector Region(SUM)[geomkind is BOX]
+!-----------------------------------------------
+      ctgeom(1,cti)=ctdis*sin(csrad)+(htl+ctx/2)*cos(csrad)
+      ctgeom(2,cti)=-cty/2
+      ctgeom(3,cti)=ctdis*cos(csrad)-(htl+ctx/2)*sin(csrad)
+      ctgeom(4,cti)=-ctx*cos(csrad)*translation_times
+      ctgeom(5,cti)=0.0e0
+      ctgeom(6,cti)=ctx*sin(csrad)*translation_times
+      ctgeom(7,cti)=0.0e0
+      ctgeom(8,cti)=cty
+      ctgeom(9,cti)=0.0e0
+      ctgeom(10,cti)=ctz*sin(csrad)
+      ctgeom(11,cti)=0.0e0
+      ctgeom(12,cti)=ctz*cos(csrad)
+      write(ifti,*) geomkind(6),cti,(ctgeom(cto,cti),cto=1,12)
+      cti=cti+1
 !-----------------------------------------------
 !Detector Region[geomkind is BOX]
 !-----------------------------------------------
@@ -508,7 +524,7 @@
 !Definition of Detector Zone
 !-----------------------------------------------
       do transi=0,translation_times-1
-        write(ifti,120) nor,nor
+        write(ifti,120) nor,nor+1
 120     FORMAT('Z',I0.4,' +',I0)
         nor=nor+1
       end do
@@ -518,11 +534,12 @@
 !-----------------------------------------------
 130   FORMAT('Z',I0.4,' +',I0)
 140   FORMAT(' -',I0)
-      write(ifti,130,advance='no') nor,nor
-      do transi=1,translation_times
-        write(ifti,140,advance='no') transi
-      end do
-      write(ifti,140) nor+1
+      write(ifti,130,advance='no') nor,nor+1
+      write(ifti,140,advance='no') 1
+      ! do transi=1,translation_times
+      !   write(ifti,140,advance='no') transi
+      ! end do
+      write(ifti,140) nor+2
       nor=nor+1
 
       ! write(ifti,130,advance='no') nor,3
@@ -540,15 +557,15 @@
       ! write(ifti,140) 1
       ! nor=nor+1
 
-      write(ifti,130,advance='no') nor,nor
-      write(ifti,140) nor+1
+      write(ifti,130,advance='no') nor,nor+1
+      write(ifti,140) nor+2
       nor=nor+1
 
-      write(ifti,130,advance='no') nor,nor
-      write(ifti,140) nor+1
+      write(ifti,130,advance='no') nor,nor+1
+      write(ifti,140) nor+2
       nor=nor+1
 
-      write(ifti,130) nor,nor
+      write(ifti,130) nor,nor+1
       nor=nor+1
 !SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
 
@@ -557,7 +574,7 @@
 !Definition of End Zone
 !-----------------------------------------------
 150   FORMAT('Z',I0.4,' +',I0' -',I0)
-      write(ifti,150) nor,nor,translation_times+1
+      write(ifti,150) nor,nor+1,translation_times+2
       write(ifti,*) geomkind(15)
 
 !-----------------------------------------------
