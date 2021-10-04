@@ -1253,7 +1253,7 @@ c         write(*,*) 'srzone:3'
         if(irnear.eq.0) THEN
           write(6,9200) iq(np),ir(np),x(np),y(np),z(np),
      &                  u(np),v(np),w(np),tval
- 9200 format(' TVAL ERROR : iq,ir,x,y,z,u,v,w,tval=',2I3,1P7E12.5)
+ 9200 format(' TVAL ERROR: iq,ir,x,y,z,u,v,w,tval=',2I3,1P7E12.5)
           idisc=1
           itverr=itverr+1
           if(itverr.ge.100) then
