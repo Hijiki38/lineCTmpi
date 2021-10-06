@@ -92,7 +92,7 @@
       character*24 medarr(MXMED)
       character*3  geomkind(15)
       character*8  geomzone(100)
-      character*22 degfile
+      character*65 degfile
       character*25 pictfile
 
       character(4) :: paramname(6)
@@ -344,8 +344,13 @@
       ctang=360e0/ctstep*stepi
 
       write (degfile,'(I3.3,F0.2,".",A,".csv")') int(ctang),
-     *   ctang-int(ctang),rank_str
+     *   ctang-int(ctang), rank_str
       flush(6)
+
+      !write (degfile,'("/mnt/hgfs/shared/lineCT_result/",I3.3
+      !*   ,F0.2,".",A,".csv")') int(ctang), ctang-int(ctang)
+      !*   ,rank_str
+      !flush(6)
 
       open(ifct,FILE=degfile,STATUS='replace')
       write (pictfile,'("egs5job",I0,".",A,".pic")') stepi,rank_str
@@ -1253,7 +1258,7 @@ c         write(*,*) 'srzone:3'
         if(irnear.eq.0) THEN
           write(6,9200) iq(np),ir(np),x(np),y(np),z(np),
      &                  u(np),v(np),w(np),tval
- 9200 format(' TVAL ERROR: iq,ir,x,y,z,u,v,w,tval=',2I3,1P7E12.5)
+ 9200 format(' TVAL ERROR : iq,ir,x,y,z,u,v,w,tval=',2I5,1P7E12.5)
           idisc=1
           itverr=itverr+1
           if(itverr.ge.100) then
