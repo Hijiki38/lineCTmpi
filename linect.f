@@ -61,6 +61,7 @@
       integer,parameter :: maxch = 1000    !max channel of the detector
       integer,parameter :: maxtrans = 4096 !150 !max translation times
       integer,parameter :: maxspec = 18000  !max row of source.csv
+      integer,parameter :: maxparam = 7
 
       common/totals/depe(4096),deltae,maxpict,transi
       real*8 depe,deltae,spec
@@ -70,18 +71,18 @@
      * halfosl,offset
 
       real*8 csrad,ctx,cty,ctz,translation_pitch,xl,zl,gross,
-     * ctdis,htl
+     * ctdis,htl,theta_rnd
 
-      real tarray(2),tt,tt0,tt1,cputime,etime,ctang,parameters(6)
+      real tarray(2),tt,tt0,tt1,cputime,etime,ctang,parameters(maxparam)
 
       integer apch
 
-      integer,dimension(maxch,maxtrans) :: phs
+      integer,dimension(maxch,maxtrans) :: phs!, mpi_phs
 
       integer
      * i,icases,idin,ie,ifti,ifto,ifct,imed,ireg,nlist,j,ntype,
      * cti,l,nos,cto,ctp,translation_times,ctstep,stepi,initstep,
-     * ifto_original,ifto_dummy,nor,prmi
+     * ifto_original,ifto_dummy,nor,prmi,phantom!,mpi_ifct
 
       !for counting time
       integer(int32) :: time_begin_c,time_end_c, CountPerSec, CountMax
@@ -92,12 +93,12 @@
       character*24 medarr(MXMED)
       character*3  geomkind(15)
       character*8  geomzone(100)
-      character*65 degfile
+      character*22 degfile
       character*25 pictfile
 
-      character(4) :: paramname(6)
+      character(4) :: paramname(maxparam)
 
-      integer totalcases		!for MPI
+      integer totalcases,mpierr		!for MPI
       character*6 rank_str
       real*8 mpi_esum(MXREG)
 
@@ -118,10 +119,10 @@
 !     after getcg etc. Unit for pict must be 39.
 !----------------------------------------------------------------
 
-	write(rank_str, '(I6.6)') mpi_rank
+	    write(rank_str, '(I6.6)') mpi_rank
 
       !open(6,FILE='egs5job.out',STATUS='unknown')
-      open(40,FILE='source.csv',STATUS='old')
+      open(40,FILE='source150kv.csv',STATUS='old')
       open(50,FILE='parameter.csv',STATUS='old')
 
 
@@ -135,14 +136,16 @@
       deltae=0.0004d0     !delta energy of energy bin
       ctx=0.30d0
       cty=0.30d0
-      ctz=0.01d0
+      ctz=0.10d0
       maxpict=100
       npreci=3   ! PICT data mode for CGView in free format
       ifti=4     ! Input unit number for cg-data
       ifct=61    ! Output unit number for the CT-data
+      !mpi_ifct=62 ! Output unit number for the CT-data(for mpi)
       ifto_original=39    ! Output unit number for pictfile
       ifto_dummy=41   !Output unit number for dummy pictfile
       apch=1     ! Initialization of apch
+      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal)
 !-----------------------------------------------------------------------
 ! initiallization variables
 !-----------------------------------------------------------------------
@@ -178,7 +181,7 @@
 !-----------------------------------------------------------------------
       write(6,*) "read variables"
       flush(6)
-      do prmi=1, 5
+      do prmi=1, maxparam
         read(50, *) paramname(prmi),parameters(prmi)
       end do
       close(unit=50)
@@ -209,6 +212,7 @@
 
       ctx = translation_pitch !adjust ctx, cty to translation pitch
       cty = translation_pitch
+      ctz = translation_pitch
 
       translation_times = parameters(3)
 !      read *, translation_times
@@ -235,6 +239,7 @@
         stop
       end if
       initstep = parameters(6)
+      phantom = parameters(7)
       print *,"--------------------"
       print *,"     HALF DISTANCE:",ctdis
       print *,"             PITCH:",translation_pitch
@@ -242,6 +247,7 @@
       print *,"             STEPS:",ctstep
       print *,"    HISTORY NUMBER:",totalcases
       print *,"      INITIAL STEP:",initstep
+      print *,"      PHANTOM TYPE:",phantom
       print *,"--------------------"
 !-----------------------------------------------------------------------
 ! Preparation of Air region
@@ -273,7 +279,7 @@
       write(6,*) "pegs5-call"
       flush(6)
       !nmed=5
-      nmed=7
+      nmed=9
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -293,6 +299,8 @@
       medarr(5)='PB                      '
       medarr(6)='ETHANOL                 '
       medarr(7)='H2O                     '
+      medarr(8)='PVC                     '
+      medarr(9)='TI                      '
 
       do j=1,nmed
         do i=1,24
@@ -300,13 +308,15 @@
         end do
       end do
 
-      chard(1) = 0.01d0
+      chard(1) = 0.1d0
       chard(2) = 0.1d0
       chard(3) = 0.1d0
       chard(4) = 0.1d0
       chard(5) = 0.1d0
       chard(6) = 0.1d0
       chard(7) = 0.1d0
+      chard(8) = 0.1d0
+      chard(9) = 0.1d0
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
       flush(6)
@@ -344,24 +354,34 @@
       ctang=360e0/ctstep*stepi
 
       write (degfile,'(I3.3,F0.2,".",A,".csv")') int(ctang),
-     *   ctang-int(ctang), rank_str
+     *   ctang-int(ctang),rank_str
       flush(6)
-
-      !write (degfile,'("/mnt/hgfs/shared/lineCT_result/",I3.3
-      !*   ,F0.2,".",A,".csv")') int(ctang), ctang-int(ctang)
-      !*   ,rank_str
-      !flush(6)
 
       open(ifct,FILE=degfile,STATUS='replace')
       write (pictfile,'("egs5job",I0,".",A,".pic")') stepi,rank_str
       flush(6)
       open(ifto_original,FILE=pictfile,STATUS='replace')
       ncount = 0
-      do i=1,1000
-        do j=1,150
+      do i=1,maxch
+        do j=1,maxtrans
           phs(i,j)=0.0
         end do
       end do
+
+!for MPI
+      ! if(mpi_rank.eq.0) then
+      !   write (mpi_degfile,'(I3.3,F0.2,".csv")') int(ctang),
+      !  *   ctang-int(ctang)
+      !   flush(6)
+      !   open(mpi_ifct,FILE=mpi_degfile,STATUS='replace')
+      !   do i=1,1000
+      !     do j=1,150
+      !       mpi_phs(i,j)=0.0
+      !     end do
+      !   end do
+      ! end if
+
+
 
       write(6,*) 'Pre-calculation for CG data'
       flush(6)
@@ -481,38 +501,79 @@
 !Sample Region[geomkind is RCC and so on..]
 !-----------------------------------------------
 ! If you want to modify the geometry of the sample, change this part.
-      ctgeom(1,cti)=0.0e0
-      ctgeom(2,cti)=-0.75e0
-      ctgeom(3,cti)=0.0e0
-      ctgeom(4,cti)=0.0e0
-      ctgeom(5,cti)=1.5e0
-      ctgeom(6,cti)=0.0e0
-      ctgeom(7,cti)=6.0e0
-        write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-      cti=cti+1
-      nos=nos+1
-      ctgeom(1,cti)=0.0e0
-      ctgeom(2,cti)=-0.75e0
-      ctgeom(3,cti)=0.0e0
-      ctgeom(4,cti)=0.0e0
-      ctgeom(5,cti)=1.5e0
-      ctgeom(6,cti)=0.0e0
-      ! ctgeom(7,cti)=0.5e0
-      ctgeom(7,cti)=2.0e0
-        write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-      cti=cti+1
-      nos=nos+1
-      ctgeom(1,cti)=0.0e0
-      ctgeom(2,cti)=-0.75e0
-      ctgeom(3,cti)=0.0e0
-      ctgeom(4,cti)=0.0e0
-      ctgeom(5,cti)=1.5e0
-      ctgeom(6,cti)=0.0e0
-      ! ctgeom(7,cti)=0.15e0
-      ctgeom(7,cti)=1.0e0
-        write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-      cti=cti+1
-      nos=nos+1
+
+! ---- "Onion Phantom" ----
+      if(phantom.eq.0) then
+        ctgeom(1,cti)=0.0e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ctgeom(7,cti)=6.0e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.0e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.5e0
+        ctgeom(7,cti)=2.0e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.0e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=1.0e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+      end if
+
+! ---- "Two rod Phantom" ----
+      if(phantom.eq.1 .or. phantom.eq.2) then
+        ctgeom(1,cti)=0.0e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ctgeom(7,cti)=2.5e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=1.5e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.5e0
+        ctgeom(7,cti)=0.5e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=-1.5e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.5e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+      end if
+
 !SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1
 
 
@@ -607,14 +668,31 @@
 !-----------------------------------------------
 !Media number of the Sample
 !-----------------------------------------------
-      write(ifti,fmt='(a)',advance='no') " 4"
-      ! write(ifti,fmt='(a)',advance='no') " 3"
-      ! write(ifti,fmt='(a)',advance='no') " 2"
-      write(ifti,fmt='(a)',advance='no') " 6"
-      write(ifti,fmt='(a)',advance='no') " 7"
+
+      if(phantom.eq.0) then
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 6"
+        write(ifti,fmt='(a)',advance='no') " 7"
+      else if(phantom.eq.1) then
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 8"
+        write(ifti,fmt='(a)',advance='no') " 7"
+      else if(phantom.eq.2) then
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 3"
+        write(ifti,fmt='(a)',advance='no') " 9"
+      end if
 
 !SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
-
+      ! medarr(1)='CDTE                    '
+      ! medarr(2)='AIR-AT-NTP              '
+      ! medarr(3)='AL                      '
+      ! medarr(4)='PMMA                    '
+      ! medarr(5)='PB                      '
+      ! medarr(6)='ETHANOL                 '
+      ! medarr(7)='H2O                     '
+      ! medarr(8)='PVC                     '
+      ! medarr(9)='TI                      '
 
 !-----------------------------------------------
 !Media number of End Zone
@@ -692,10 +770,10 @@
 !-----------------------------------------------------------------------
 ! Define initial variables for incident particle
       iqin=0             ! Incident particle charge - photons
-      !xin=-ctdis*sin(csrad)+htl*cos(csrad)-transi*xl ! Source position
+      xin=-ctdis*sin(csrad)!+htl*cos(csrad)-transi*xl ! Source position
       !xin=-ctdis*sin(csrad)+htl*cos(csrad)*rnnow ! Source position
-      !yin=0.0d0
-      !zin=-ctdis*cos(csrad)-htl*sin(csrad)*rnnow
+      yin=0.0d0
+      zin=-ctdis*cos(csrad)!-htl*sin(csrad)*rnnow
       uin=sin(csrad)
       vin=0
       win=cos(csrad)
@@ -784,11 +862,22 @@
 !       ----------------------
 !       Select source position
 !       ----------------------
+        ! call randomset(rnnow)
+        !
+        ! xin=-ctdis*sin(csrad)+htl*cos(csrad)*(2 * rnnow - 1) ! Source position
+        ! yin=0.0d0
+        ! zin=-ctdis*cos(csrad)-htl*sin(csrad)*(2 * rnnow - 1)
+
+!       ----------------------
+!       Select source angle (for Fan beam)
+!       ----------------------
         call randomset(rnnow)
 
-        xin=-ctdis*sin(csrad)+htl*cos(csrad)*(2 * rnnow - 1) ! Source position
-        yin=0.0d0
-        zin=-ctdis*cos(csrad)-htl*sin(csrad)*(2 * rnnow - 1)
+        theta_rnd=translation_pitch*translation_times/(4*ctdis)
+        uin=sin(csrad+(2*rnnow-1)*atan(theta_rnd))
+        vin=0
+        win=cos(csrad+(2*rnnow-1)*atan(theta_rnd))
+
 !       ---------------------
 !       calculation of totke
 !       ---------------------
@@ -897,9 +986,25 @@
       end do
       close(unit=ifct)
       close(unit=ifto_original)
+
+
+     !  call mpi_allreduce(phs,mpi_phs,maxch*translation_times,
+     ! * MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD)
+     !
+     !  do ie=1,maxch
+     !   do cti=1,translation_times-1
+     !     write(mpi_ifct,270,advance='no') mpi_phs(ie,cti)
+     !   end do
+     !   write(mpi_ifct,*) mpi_phs(ie,cti)
+     !  end do
+     !  close(unit=mpi_ifct)
+
                                              ! --------------------
       end do                                 ! End of Rotation loop
                                              ! --------------------
+
+
+
 
       !for counting time
       call system_clock(time_end_c)
@@ -1258,7 +1363,7 @@ c         write(*,*) 'srzone:3'
         if(irnear.eq.0) THEN
           write(6,9200) iq(np),ir(np),x(np),y(np),z(np),
      &                  u(np),v(np),w(np),tval
- 9200 format(' TVAL ERROR : iq,ir,x,y,z,u,v,w,tval=',2I5,1P7E12.5)
+ 9200 format(' TVAL ERROR : iq,ir,x,y,z,u,v,w,tval=',2I3,1P7E12.5)
           idisc=1
           itverr=itverr+1
           if(itverr.ge.100) then
