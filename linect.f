@@ -61,7 +61,7 @@
       integer,parameter :: maxch = 1000    !max channel of the detector
       integer,parameter :: maxtrans = 4096 !150 !max translation times
       integer,parameter :: maxspec = 18000  !max row of source.csv
-      integer,parameter :: maxparam = 7
+      integer,parameter :: maxparam = 8
 
       common/totals/depe(4096),deltae,maxpict,transi
       real*8 depe,deltae,spec
@@ -82,7 +82,7 @@
       integer
      * i,icases,idin,ie,ifti,ifto,ifct,imed,ireg,nlist,j,ntype,
      * cti,l,nos,cto,ctp,translation_times,ctstep,stepi,initstep,
-     * ifto_original,ifto_dummy,nor,prmi,phantom!,mpi_ifct
+     * ifto_original,ifto_dummy,nor,prmi,phantom,beam!,mpi_ifct
 
       !for counting time
       integer(int32) :: time_begin_c,time_end_c, CountPerSec, CountMax
@@ -146,6 +146,7 @@
       ifto_dummy=41   !Output unit number for dummy pictfile
       apch=1     ! Initialization of apch
       phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal)
+      beam=1     ! Beam Type (0:Parallel, 1:Fan)
 !-----------------------------------------------------------------------
 ! initiallization variables
 !-----------------------------------------------------------------------
@@ -240,6 +241,11 @@
       end if
       initstep = parameters(6)
       phantom = parameters(7)
+      if(phantom.lt.0 .or. phantom.gt.2) then
+        write(6,*) "phantom number you entered is not defined"
+      beam = parameters(8)
+      if(beam.lt.0 .or. beam.gt.1) then
+        write(6,*) "beam type number you entered is not defined"
       print *,"--------------------"
       print *,"     HALF DISTANCE:",ctdis
       print *,"             PITCH:",translation_pitch
@@ -248,6 +254,7 @@
       print *,"    HISTORY NUMBER:",totalcases
       print *,"      INITIAL STEP:",initstep
       print *,"      PHANTOM TYPE:",phantom
+      print *,"         BEAM TYPE:",beam
       print *,"--------------------"
 !-----------------------------------------------------------------------
 ! Preparation of Air region
@@ -860,23 +867,27 @@
         end do
 
 !       ----------------------
-!       Select source position
+!       Select source position (for Parallel beam)
 !       ----------------------
-        ! call randomset(rnnow)
-        !
-        ! xin=-ctdis*sin(csrad)+htl*cos(csrad)*(2 * rnnow - 1) ! Source position
-        ! yin=0.0d0
-        ! zin=-ctdis*cos(csrad)-htl*sin(csrad)*(2 * rnnow - 1)
+        if(beam.eq.0) then
+          call randomset(rnnow)
+
+          xin=-ctdis*sin(csrad)+htl*cos(csrad)*(2 * rnnow - 1) ! Source position
+          yin=0.0d0
+          zin=-ctdis*cos(csrad)-htl*sin(csrad)*(2 * rnnow - 1)
+        endif
 
 !       ----------------------
 !       Select source angle (for Fan beam)
 !       ----------------------
-        call randomset(rnnow)
+        if(beam.eq.1) then
+          call randomset(rnnow)
 
-        theta_rnd=translation_pitch*translation_times/(4*ctdis)
-        uin=sin(csrad+(2*rnnow-1)*atan(theta_rnd))
-        vin=0
-        win=cos(csrad+(2*rnnow-1)*atan(theta_rnd))
+          theta_rnd=translation_pitch*translation_times/(4*ctdis)
+          uin=sin(csrad+(2*rnnow-1)*atan(theta_rnd))
+          vin=0
+          win=cos(csrad+(2*rnnow-1)*atan(theta_rnd))
+        endif
 
 !       ---------------------
 !       calculation of totke
