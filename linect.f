@@ -243,9 +243,11 @@
       phantom = parameters(7)
       if(phantom.lt.0 .or. phantom.gt.2) then
         write(6,*) "phantom number you entered is not defined"
+      end if
       beam = parameters(8)
       if(beam.lt.0 .or. beam.gt.1) then
         write(6,*) "beam type number you entered is not defined"
+      end if
       print *,"--------------------"
       print *,"     HALF DISTANCE:",ctdis
       print *,"             PITCH:",translation_pitch
@@ -875,7 +877,7 @@
           xin=-ctdis*sin(csrad)+htl*cos(csrad)*(2 * rnnow - 1) ! Source position
           yin=0.0d0
           zin=-ctdis*cos(csrad)-htl*sin(csrad)*(2 * rnnow - 1)
-        endif
+        end if
 
 !       ----------------------
 !       Select source angle (for Fan beam)
@@ -887,7 +889,7 @@
           uin=sin(csrad+(2*rnnow-1)*atan(theta_rnd))
           vin=0
           win=cos(csrad+(2*rnnow-1)*atan(theta_rnd))
-        endif
+        end if
 
 !       ---------------------
 !       calculation of totke
@@ -998,7 +1000,7 @@
       close(unit=ifct)
       close(unit=ifto_original)
 
-
+    ! if error occurs, delete the following part
      !  call mpi_allreduce(phs,mpi_phs,maxch*translation_times,
      ! * MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD)
      !
