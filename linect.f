@@ -88,7 +88,7 @@
       integer(int32) :: time_begin_c,time_end_c, CountPerSec, CountMax
 
       real,dimension(2,maxspec) :: crt
-      real,dimension(30,100) :: ctgeom
+      real,dimension(30,maxtrans+100) :: ctgeom
 
       character*24 medarr(MXMED)
       character*3  geomkind(15)
@@ -555,29 +555,29 @@
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=2.5e0 !radius
+        ctgeom(7,cti)=1.0e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
-        ctgeom(1,cti)=1.5e0
+        ctgeom(1,cti)=0.5e0
         ctgeom(2,cti)=-0.75e0
         ctgeom(3,cti)=0.0e0
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.5e0
-        ctgeom(7,cti)=0.5e0 !radius
+        ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
-        ctgeom(1,cti)=-1.5e0
+        ctgeom(1,cti)=-0.5e0
         ctgeom(2,cti)=-0.75e0
         ctgeom(3,cti)=0.0e0
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.5e0 !radius
+        ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
