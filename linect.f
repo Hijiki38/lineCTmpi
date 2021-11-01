@@ -145,7 +145,7 @@
       ifto_original=39    ! Output unit number for pictfile
       ifto_dummy=41   !Output unit number for dummy pictfile
       apch=1     ! Initialization of apch
-      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal)
+      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni))
       beam=1     ! Beam Type (0:Parallel, 1:Fan)
 !-----------------------------------------------------------------------
 ! initiallization variables
@@ -288,7 +288,7 @@
       write(6,*) "pegs5-call"
       flush(6)
       !nmed=5
-      nmed=9
+      nmed=11
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -310,6 +310,8 @@
       medarr(7)='H2O                     '
       medarr(8)='PVC                     '
       medarr(9)='TI                      '
+      medarr(10)='C                       '
+      medarr(11)='NI                      '
 
       do j=1,nmed
         do i=1,24
@@ -326,6 +328,8 @@
       chard(7) = 0.1d0
       chard(8) = 0.1d0
       chard(9) = 0.1d0
+      chard(10) = 0.1d0
+      chard(11) = 0.1d0
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
       flush(6)
@@ -583,6 +587,64 @@
         nos=nos+1
       end if
 
+      ! ---- "Four rod Phantom" ----
+      if(phantom.eq.3 .or. phantom.eq.4) then
+        ctgeom(1,cti)=0.0e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ctgeom(7,cti)=1.0e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.5e0 !ph1
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=2.0e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.5e0
+        ctgeom(7,cti)=0.25e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.0e0 !ph2
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.5e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.25e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=-0.5e0 !ph3
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.25e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.0e0 !ph4
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=-0.5e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.25e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+      end if
+
 !SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1
 
 
@@ -599,7 +661,7 @@
 !Definition of Detector Zone
 !-----------------------------------------------
       do transi=0,translation_times-1
-        write(ifti,120) nor,nor+1
+        write(ifti,120) nor,nor+1 ! Z0002  +3
 120     FORMAT('Z',I0.4,' +',I0)
         nor=nor+1
       end do
@@ -610,38 +672,29 @@
 130   FORMAT('Z',I0.4,' +',I0)
 140   FORMAT(' -',I0)
       write(ifti,130,advance='no') nor,nor+1
-      write(ifti,140,advance='no') 1
-      ! do transi=1,translation_times
-      !   write(ifti,140,advance='no') transi
-      ! end do
-      write(ifti,140) nor+2
+      write(ifti,140,advance='no') 1 !subtract detector zone
+      write(ifti,140) nor+2 !subtract sample zone
       nor=nor+1
 
-      ! write(ifti,130,advance='no') nor,3
-      ! write(ifti,140) 4
-      ! nor=nor+1
-      !
-      ! write(ifti,130) nor,4
-      ! nor=nor+1
-      !
-      ! write(ifti,130,advance='no') nor,5
-      ! write(ifti,140) 6
-      ! nor=nor+1
-      !
-      ! write(ifti,130,advance='no') nor,6
-      ! write(ifti,140) 1
-      ! nor=nor+1
-
-      write(ifti,130,advance='no') nor,nor+1
-      write(ifti,140) nor+2
-      nor=nor+1
-
-      write(ifti,130,advance='no') nor,nor+1
-      write(ifti,140) nor+2
+      write(ifti,130,advance='no') nor,nor+1 !sample zone
+      write(ifti,140,advance='no') nor+2  !subtract rod 1
+      write(ifti,140) nor+3 !subtract rod 2
+      if(phantom.eq.3 .or. phantom.eq.4) then
+        write(ifti,140) nor+4 !subtract rod 3
+        write(ifti,140) nor+5 !subtract rod 4
+      end if
       nor=nor+1
 
       write(ifti,130) nor,nor+1
       nor=nor+1
+      write(ifti,130) nor,nor+1
+      nor=nor+1
+      if(phantom.eq.3 .or. phantom.eq.4) then
+        write(ifti,130) nor,nor+1 !rod 3
+        nor=nor+1
+        write(ifti,130) nor,nor+1 !rod 4
+        nor=nor+1
+      end if
 !SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
 
 
@@ -690,6 +743,18 @@
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 3"
         write(ifti,fmt='(a)',advance='no') " 9"
+      else if(phantom.eq.3) then
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 9"
+        write(ifti,fmt='(a)',advance='no') " 10"
+        write(ifti,fmt='(a)',advance='no') " 3"
+        write(ifti,fmt='(a)',advance='no') " 11"
+      else if(phantom.eq.4) then
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 10"
+        write(ifti,fmt='(a)',advance='no') " 3"
+        write(ifti,fmt='(a)',advance='no') " 11"
       end if
 
 !SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
@@ -702,6 +767,8 @@
       ! medarr(7)='H2O                     '
       ! medarr(8)='PVC                     '
       ! medarr(9)='TI                      '
+      ! medarr(10)='C                       '
+      ! medarr(11)='NI                      '
 
 !-----------------------------------------------
 !Media number of End Zone
