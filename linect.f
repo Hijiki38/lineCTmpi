@@ -241,7 +241,7 @@
       end if
       initstep = parameters(6)
       phantom = parameters(7)
-      if(phantom.lt.0 .or. phantom.gt.2) then
+      if(phantom.lt.0 .or. phantom.gt.4) then
         write(6,*) "phantom number you entered is not defined"
       end if
       beam = parameters(8)
@@ -288,7 +288,7 @@
       write(6,*) "pegs5-call"
       flush(6)
       !nmed=5
-      nmed=11
+      nmed=9
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -305,13 +305,13 @@
       medarr(2)='AIR-AT-NTP              '
       medarr(3)='AL                      '
       medarr(4)='PMMA                    '
-      medarr(5)='PB                      '
-      medarr(6)='ETHANOL                 '
-      medarr(7)='H2O                     '
-      medarr(8)='PVC                     '
-      medarr(9)='TI                      '
-      medarr(10)='C                       '
-      medarr(11)='NI                      '
+      !medarr(5)='PB                      '
+      !medarr(6)='ETHANOL                 '
+      medarr(5)='H2O                     '
+      medarr(6)='PVC                     '
+      medarr(7)='TI                      '
+      medarr(8)='C                       '
+      medarr(9)='NI                      '
 
       do j=1,nmed
         do i=1,24
@@ -328,8 +328,7 @@
       chard(7) = 0.1d0
       chard(8) = 0.1d0
       chard(9) = 0.1d0
-      chard(10) = 0.1d0
-      chard(11) = 0.1d0
+      !chard(10) = 0.1d0
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
       flush(6)
@@ -345,6 +344,8 @@
       !call pegs5
       call egs5mpi_pegscall
 !     ==========
+
+
 !-----------------------------------------------------------------------
 ! step 3-1: GEOM Generation
 !-----------------------------------------------------------------------
@@ -733,42 +734,40 @@
 
       if(phantom.eq.0) then
         write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 5"
         write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 7"
       else if(phantom.eq.1) then
         write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 8"
-        write(ifti,fmt='(a)',advance='no') " 7"
+        write(ifti,fmt='(a)',advance='no') " 6"
+        write(ifti,fmt='(a)',advance='no') " 5"
       else if(phantom.eq.2) then
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 9"
+        write(ifti,fmt='(a)',advance='no') " 7"
       else if(phantom.eq.3) then
         write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 9"
-        write(ifti,fmt='(a)',advance='no') " 10"
+        write(ifti,fmt='(a)',advance='no') " 7"
+        write(ifti,fmt='(a)',advance='no') " 8"
         write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 11"
+        write(ifti,fmt='(a)',advance='no') " 9"
       else if(phantom.eq.4) then
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 10"
+        write(ifti,fmt='(a)',advance='no') " 8"
         write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 11"
+        write(ifti,fmt='(a)',advance='no') " 9"
       end if
 
 !SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
-      ! medarr(1)='CDTE                    '
-      ! medarr(2)='AIR-AT-NTP              '
-      ! medarr(3)='AL                      '
-      ! medarr(4)='PMMA                    '
-      ! medarr(5)='PB                      '
-      ! medarr(6)='ETHANOL                 '
-      ! medarr(7)='H2O                     '
-      ! medarr(8)='PVC                     '
-      ! medarr(9)='TI                      '
-      ! medarr(10)='C                       '
-      ! medarr(11)='NI                      '
+      !medarr(1)='CDTE                    '
+      !medarr(2)='AIR-AT-NTP              '
+      !medarr(3)='AL                      '
+      !medarr(4)='PMMA                    '
+      !medarr(5)='H2O                     '
+      !medarr(6)='PVC                     '
+      !medarr(7)='TI                      '
+      !medarr(8)='C                       '
+      !medarr(9)='NI                      '
 
 !-----------------------------------------------
 !Media number of End Zone
@@ -1066,18 +1065,6 @@
       end do
       close(unit=ifct)
       close(unit=ifto_original)
-
-    ! if error occurs, delete the following part
-     !  call mpi_allreduce(phs,mpi_phs,maxch*translation_times,
-     ! * MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD)
-     !
-     !  do ie=1,maxch
-     !   do cti=1,translation_times-1
-     !     write(mpi_ifct,270,advance='no') mpi_phs(ie,cti)
-     !   end do
-     !   write(mpi_ifct,*) mpi_phs(ie,cti)
-     !  end do
-     !  close(unit=mpi_ifct)
 
                                              ! --------------------
       end do                                 ! End of Rotation loop
