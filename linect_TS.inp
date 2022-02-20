@@ -73,25 +73,25 @@ PWLF
  &INP  /END
 DECK
  &INP  /END
-COMP
- &INP NE=3,RHO= 1.06,PZ= 15.,17.,1.
+ COMP
+  &INP NE=3,RHO= 1.06,PZ= 15.,17.,1.
        IRAYL=1,IBOUND=1,INCOH=1,ICPROF=-3,IMPACT=1  &END
-ABS                           ABS
-C  H  N
-ENER
- &INP AE=0.512,AP=0.001,UE=1.511,UP=1.0 &END
-PWLF
- &INP  &END
-DECK
- &INP  &END
-COMP
- &INP NE=3,RHO= 1.24,PZ= 3.,4.,2.
-       IRAYL=1,IBOUND=1,INCOH=1,ICPROF=-3,IMPACT=1  &END
-PLA                           PLA
-C  H  O
-ENER
- &INP AE=0.512,AP=0.001,UE=1.511,UP=1.0 &END
-PWLF
- &INP  &END
-DECK
- &INP  &END
+ ABS                           ABS
+ C  H  N
+ ENER
+  &INP AE=0.512,AP=0.001,UE=1.511,UP=1.0 &END
+ PWLF
+  &INP  &END
+ DECK
+  &INP  &END
+  COMP
+   &INP NE=3,RHO= 1.24,PZ= 3.,4.,2.
+        IRAYL=1,IBOUND=1,INCOH=1,ICPROF=-3,IMPACT=1  &END
+  PLA                           PLA
+  C  H  O
+  ENER
+   &INP AE=0.512,AP=0.001,UE=1.511,UP=1.0 &END
+  PWLF
+   &INP  &END
+  DECK
+   &INP  &END

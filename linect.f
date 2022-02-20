@@ -145,7 +145,7 @@
       ifto_original=39    ! Output unit number for pictfile
       ifto_dummy=41   !Output unit number for dummy pictfile
       apch=1     ! Initialization of apch
-      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni))
+      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues(air wtr abs pvc))
       beam=1     ! Beam Type (0:Parallel, 1:Fan)
 !-----------------------------------------------------------------------
 ! initiallization variables
@@ -159,7 +159,7 @@
       ctstep=-1
       initstep=0
       ncases=0
-	    totalcases=0
+      totalcases=0
       gross=0.0d0
       gsum=0.0d0
       geomkind(1)='RPP'
@@ -213,7 +213,7 @@
 
       ctx = translation_pitch !adjust ctx, cty to translation pitch
       cty = translation_pitch
-      ctz = translation_pitch
+      ctz = 0.075 !adjust to detector thickness
 
       translation_times = parameters(3)
 !      read *, translation_times
@@ -241,7 +241,7 @@
       end if
       initstep = parameters(6)
       phantom = parameters(7)
-      if(phantom.lt.0 .or. phantom.gt.4) then
+      if(phantom.lt.0 .or. phantom.gt.5) then
         write(6,*) "phantom number you entered is not defined"
       end if
       beam = parameters(8)
@@ -305,13 +305,25 @@
       medarr(2)='AIR-AT-NTP              '
       medarr(3)='AL                      '
       medarr(4)='PMMA                    '
-      !medarr(5)='PB                      '
-      !medarr(6)='ETHANOL                 '
       medarr(5)='H2O                     '
       medarr(6)='PVC                     '
       medarr(7)='TI                      '
       medarr(8)='C                       '
       medarr(9)='NI                      '
+
+      if (phantom.eq.5) then
+        medarr(1)='CDTE                    '
+        medarr(2)='AIR-AT-NTP              '
+        medarr(3)='AL                      '
+        medarr(4)='PMMA                    '
+        medarr(5)='H2O                     '
+        medarr(6)='PVC                     '
+        medarr(7)='PLA                     '
+        medarr(8)='C                       '
+        medarr(9)='ABS                     '
+      end if
+
+
 
       do j=1,nmed
         do i=1,24
@@ -319,15 +331,15 @@
         end do
       end do
 
-      chard(1) = 0.1d0
-      chard(2) = 0.1d0
-      chard(3) = 0.1d0
-      chard(4) = 0.1d0
-      chard(5) = 0.1d0
-      chard(6) = 0.1d0
-      chard(7) = 0.1d0
-      chard(8) = 0.1d0
-      chard(9) = 0.1d0
+      chard(1) = 0.005d0
+      chard(2) = 0.01d0
+      chard(3) = 0.01d0
+      chard(4) = 0.01d0
+      chard(5) = 0.01d0
+      chard(6) = 0.01d0
+      chard(7) = 0.01d0
+      chard(8) = 0.01d0
+      chard(9) = 0.01d0
       !chard(10) = 0.1d0
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
@@ -589,7 +601,7 @@
       end if
 
       ! ---- "Four rod Phantom" ----
-      if(phantom.eq.3 .or. phantom.eq.4) then
+      if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
         ctgeom(1,cti)=0.0e0
         ctgeom(2,cti)=-0.75e0
         ctgeom(3,cti)=0.0e0
@@ -604,7 +616,7 @@
         ctgeom(2,cti)=-0.75e0
         ctgeom(3,cti)=0.0e0
         ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=2.0e0
+        ctgeom(5,cti)=2.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.5e0
         ctgeom(7,cti)=0.25e0 !radius
@@ -673,14 +685,17 @@
 130   FORMAT('Z',I0.4,' +',I0)
 140   FORMAT(' -',I0)
       write(ifti,130,advance='no') nor,nor+1
-      write(ifti,140,advance='no') 1 !subtract detector zone
+      !write(ifti,140,advance='no') 1 !subtract detector zone
+      do transi=0,translation_times-1
+        write(ifti,140) transi+2 ! Z0002  +3
+      end do
       write(ifti,140) nor+2 !subtract sample zone
       nor=nor+1
 
       write(ifti,130,advance='no') nor,nor+1 !sample zone
       write(ifti,140,advance='no') nor+2  !subtract rod 1
       write(ifti,140) nor+3 !subtract rod 2
-      if(phantom.eq.3 .or. phantom.eq.4) then
+      if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
         write(ifti,140) nor+4 !subtract rod 3
         write(ifti,140) nor+5 !subtract rod 4
       end if
@@ -690,7 +705,7 @@
       nor=nor+1
       write(ifti,130) nor,nor+1
       nor=nor+1
-      if(phantom.eq.3 .or. phantom.eq.4) then
+      if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
         write(ifti,130) nor,nor+1 !rod 3
         nor=nor+1
         write(ifti,130) nor,nor+1 !rod 4
@@ -756,6 +771,12 @@
         write(ifti,fmt='(a)',advance='no') " 8"
         write(ifti,fmt='(a)',advance='no') " 3"
         write(ifti,fmt='(a)',advance='no') " 9"
+      else if(phantom.eq.5) then
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 2"
+        write(ifti,fmt='(a)',advance='no') " 5"
+        write(ifti,fmt='(a)',advance='no') " 7"
+        write(ifti,fmt='(a)',advance='no') " 9"
       end if
 
 !SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
@@ -768,6 +789,17 @@
       !medarr(7)='TI                      '
       !medarr(8)='C                       '
       !medarr(9)='NI                      '
+      !
+      !! FOUR TISSUES
+      ! medarr(1)='CDTE                    '
+      ! medarr(2)='AIR-AT-NTP              '
+      ! medarr(3)='AL                      '
+      ! medarr(4)='PMMA                    '
+      ! medarr(5)='H2O                     '
+      ! medarr(6)='PVC                     '
+      ! medarr(7)='PLA                     '
+      ! medarr(8)='C                       '
+      ! medarr(9)='ABS                     '
 
 !-----------------------------------------------
 !Media number of End Zone
