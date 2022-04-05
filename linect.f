@@ -61,7 +61,7 @@
       integer,parameter :: maxch = 1000    !max channel of the detector
       integer,parameter :: maxtrans = 4096 !150 !max translation times
       integer,parameter :: maxspec = 18000  !max row of source.csv
-      integer,parameter :: maxparam = 8
+      integer,parameter :: maxparam = 9
 
       common/totals/depe(4096),deltae,maxpict,transi
       real*8 depe,deltae,spec
@@ -71,7 +71,9 @@
      * halfosl,offset
 
       real*8 csrad,ctx,cty,ctz,translation_pitch,xl,zl,gross,
-     * ctdis,htl,theta_rnd
+     * htl,theta_rnd
+
+	double precision ctdiss,ctdisd
 
       real tarray(2),tt,tt0,tt1,cputime,etime,ctang,parameters(maxparam)
 
@@ -136,7 +138,7 @@
       deltae=0.0004d0     !delta energy of energy bin
       ctx=0.30d0
       cty=0.30d0
-      ctz=0.10d0
+      ctz=0.075d0
       maxpict=100
       npreci=3   ! PICT data mode for CGView in free format
       ifti=4     ! Input unit number for cg-data
@@ -145,7 +147,7 @@
       ifto_original=39    ! Output unit number for pictfile
       ifto_dummy=41   !Output unit number for dummy pictfile
       apch=1     ! Initialization of apch
-      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues(air wtr abs pvc))
+      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues)
       beam=1     ! Beam Type (0:Parallel, 1:Fan)
 !-----------------------------------------------------------------------
 ! initiallization variables
@@ -155,11 +157,13 @@
         depe(i)=0.D0
       end do
 
-      ctdis=-1.0d0
+      !ctdis=-1.0d0
+      ctdiss=-1.0d0
+      ctdisd=-1.0d0
       ctstep=-1
       initstep=0
       ncases=0
-      totalcases=0
+	    totalcases=0
       gross=0.0d0
       gsum=0.0d0
       geomkind(1)='RPP'
@@ -199,23 +203,31 @@
 90    continue
       apch=apch-1
       close(unit=40)
-      ctdis = parameters(1)
+      !ctdis = parameters(1)
+      ctdiss = parameters(1)
+      ctdisd = parameters(2)
+      ctdisd = ctdisd - ctdiss
 !      read *, ctdis
-      ctdis=ctdis/2
-      if(ctdis.le.0.0) then
+      !ctdis=ctdis/2
+      if(ctdiss.le.0.0 .or. ctdisd.le.0.0) then
+        write(6,*) "distance must be greater than 0!"
+        flush(6)
         stop
       end if
-      translation_pitch = parameters(2)
+      translation_pitch = parameters(3)
+
 !      read *, translation_pitch
       if(translation_pitch.le.0.0) then
+        write(6,*) "translation must be greater than 0!"
+        flush(6)
         stop
       end if
 
       ctx = translation_pitch !adjust ctx, cty to translation pitch
       cty = translation_pitch
-      ctz = 0.075 !adjust to detector thickness
+      !ctz = translation_pitch
 
-      translation_times = parameters(3)
+      translation_times = parameters(4)
 !      read *, translation_times
       htl=((translation_times-1)*translation_pitch)/2 !half translation length
       if(mod(translation_times,2).ne.0.or.translation_times.lt.0) then
@@ -227,29 +239,30 @@
         flush(6)
         stop
       end if
-      ctstep = parameters(4)
+      ctstep = parameters(5)
 !      read *, ctstep
       if(ctstep.le.0.0.or.ctstep.gt.3600.0) then
         stop
       end if
-      totalcases = parameters(5)
+      totalcases = parameters(6)
 !      read *, ncases
       if(totalcases.lt.1) then
         write(6,*) "History number should be set at least one"
         flush(6)
         stop
       end if
-      initstep = parameters(6)
-      phantom = parameters(7)
+      initstep = parameters(7)
+      phantom = parameters(8)
       if(phantom.lt.0 .or. phantom.gt.5) then
         write(6,*) "phantom number you entered is not defined"
       end if
-      beam = parameters(8)
+      beam = parameters(9)
       if(beam.lt.0 .or. beam.gt.1) then
         write(6,*) "beam type number you entered is not defined"
       end if
       print *,"--------------------"
-      print *,"     HALF DISTANCE:",ctdis
+      print *,"     SOURCE-OBJECT:",ctdiss
+      print *,"   DETECTOR-OBJECT:",ctdisd
       print *,"             PITCH:",translation_pitch
       print *," TRANSLATION TIMES:",translation_times
       print *,"             STEPS:",ctstep
@@ -261,7 +274,7 @@
 !-----------------------------------------------------------------------
 ! Preparation of Air region
 !-----------------------------------------------------------------------
-      halfosl=ctdis+10.0d0               !half one side length of air region
+      halfosl=max(ctdiss,ctdisd)+10.0d0               !half one side length of air region
 !-----------------------------------------------------------------------
 ! X-ray tube Sampling
 !-----------------------------------------------------------------------
@@ -288,7 +301,7 @@
       write(6,*) "pegs5-call"
       flush(6)
       !nmed=5
-      nmed=9
+      nmed=7
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -301,15 +314,25 @@
       call block_set                 ! Initialize some general variables
 !     ==============
 
+!      medarr(1)='CDTE                    '
+!      medarr(2)='AIR-AT-NTP              '
+!      medarr(3)='AL                      '
+!      medarr(4)='PMMA                    '
+!      medarr(5)='H2O                     '
+!      medarr(6)='PVC                     '
+!      medarr(7)='TI                      '
+!      medarr(8)='C                       '
+!      medarr(9)='NI                      '
+
+
       medarr(1)='CDTE                    '
       medarr(2)='AIR-AT-NTP              '
       medarr(3)='AL                      '
-      medarr(4)='PMMA                    '
-      medarr(5)='H2O                     '
-      medarr(6)='PVC                     '
-      medarr(7)='TI                      '
-      medarr(8)='C                       '
-      medarr(9)='NI                      '
+      medarr(4)='CU                      '
+      medarr(5)='TI                      '
+      medarr(6)='C                       '
+      medarr(7)='H2O                     '
+
 
       if (phantom.eq.5) then
         medarr(1)='CDTE                    '
@@ -323,23 +346,21 @@
         medarr(9)='ABS                     '
       end if
 
-
-
       do j=1,nmed
         do i=1,24
           media(i,j)=medarr(j)(i:i)
         end do
       end do
 
-      chard(1) = 0.005d0
-      chard(2) = 0.01d0
-      chard(3) = 0.01d0
-      chard(4) = 0.01d0
-      chard(5) = 0.01d0
-      chard(6) = 0.01d0
-      chard(7) = 0.01d0
-      chard(8) = 0.01d0
-      chard(9) = 0.01d0
+      chard(1) = 0.05d0
+      chard(2) = 0.05d0
+      chard(3) = 0.05d0
+      chard(4) = 0.05d0
+      chard(5) = 0.05d0
+      chard(6) = 0.05d0
+      chard(7) = 0.05d0
+      chard(8) = 0.05d0
+      chard(9) = 0.05d0
       !chard(10) = 0.1d0
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
@@ -435,9 +456,9 @@
 !-----------------------------------------------
 !Detector Region(SUM)[geomkind is BOX]
 !-----------------------------------------------
-      ctgeom(1,cti)=ctdis*sin(csrad)+(htl+ctx/2)*cos(csrad)
+      ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2)*cos(csrad)
       ctgeom(2,cti)=-cty/2
-      ctgeom(3,cti)=ctdis*cos(csrad)-(htl+ctx/2)*sin(csrad)
+      ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2)*sin(csrad)
       ctgeom(4,cti)=-ctx*cos(csrad)*translation_times
       ctgeom(5,cti)=0.0e0
       ctgeom(6,cti)=ctx*sin(csrad)*translation_times
@@ -453,9 +474,9 @@
 !Detector Region[geomkind is BOX]
 !-----------------------------------------------
       do transi=0,translation_times-1
-        ctgeom(1,cti)=ctdis*sin(csrad)+(htl+ctx/2)*cos(csrad)-transi*xl
+        ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2)*cos(csrad)-transi*xl
         ctgeom(2,cti)=-cty/2
-        ctgeom(3,cti)=ctdis*cos(csrad)-(htl+ctx/2)*sin(csrad)+transi*zl
+        ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2)*sin(csrad)+transi*zl
         ctgeom(4,cti)=-ctx*cos(csrad)
         ctgeom(5,cti)=0.0e0
         ctgeom(6,cti)=ctx*sin(csrad)
@@ -608,7 +629,7 @@
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=1.0e0 !radius
+        ctgeom(7,cti)=0.5e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -616,10 +637,10 @@
         ctgeom(2,cti)=-0.75e0
         ctgeom(3,cti)=0.0e0
         ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=2.5e0
+        ctgeom(5,cti)=2.0e0
         ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.5e0
-        ctgeom(7,cti)=0.25e0 !radius
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.15e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -630,7 +651,7 @@
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
+        ctgeom(7,cti)=0.15e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -641,7 +662,7 @@
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
+        ctgeom(7,cti)=0.15e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -652,7 +673,7 @@
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
+        ctgeom(7,cti)=0.15e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -685,10 +706,7 @@
 130   FORMAT('Z',I0.4,' +',I0)
 140   FORMAT(' -',I0)
       write(ifti,130,advance='no') nor,nor+1
-      !write(ifti,140,advance='no') 1 !subtract detector zone
-      do transi=0,translation_times-1
-        write(ifti,140) transi+2 ! Z0002  +3
-      end do
+      write(ifti,140,advance='no') 1 !subtract detector zone
       write(ifti,140) nor+2 !subtract sample zone
       nor=nor+1
 
@@ -760,17 +778,17 @@
         write(ifti,fmt='(a)',advance='no') " 3"
         write(ifti,fmt='(a)',advance='no') " 7"
       else if(phantom.eq.3) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 7"
-        write(ifti,fmt='(a)',advance='no') " 8"
+        write(ifti,fmt='(a)',advance='no') " 2"
         write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 9"
+        write(ifti,fmt='(a)',advance='no') " 6"
+        write(ifti,fmt='(a)',advance='no') " 5"
+        write(ifti,fmt='(a)',advance='no') " 4"
       else if(phantom.eq.4) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 8"
         write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 9"
+        write(ifti,fmt='(a)',advance='no') " 3"
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 5"
+        write(ifti,fmt='(a)',advance='no') " 6"
       else if(phantom.eq.5) then
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 2"
@@ -800,6 +818,15 @@
       ! medarr(7)='PLA                     '
       ! medarr(8)='C                       '
       ! medarr(9)='ABS                     '
+
+      !!FOUR FourMetal
+      ! medarr(1)='CDTE                    '
+      ! medarr(2)='AIR-AT-NTP              '
+      ! medarr(3)='AL                      '
+      ! medarr(4)='CU                      '
+      ! medarr(5)='TI                      '
+      ! medarr(6)='C                       '
+      ! medarr(7)='H2O                     '
 
 !-----------------------------------------------
 !Media number of End Zone
@@ -877,10 +904,10 @@
 !-----------------------------------------------------------------------
 ! Define initial variables for incident particle
       iqin=0             ! Incident particle charge - photons
-      xin=-ctdis*sin(csrad)!+htl*cos(csrad)-transi*xl ! Source position
+      xin=-ctdiss*sin(csrad)!+htl*cos(csrad)-transi*xl ! Source position
       !xin=-ctdis*sin(csrad)+htl*cos(csrad)*rnnow ! Source position
       yin=0.0d0
-      zin=-ctdis*cos(csrad)!-htl*sin(csrad)*rnnow
+      zin=-ctdiss*cos(csrad)!-htl*sin(csrad)*rnnow
       uin=sin(csrad)
       vin=0
       win=cos(csrad)
@@ -972,9 +999,9 @@
         if(beam.eq.0) then
           call randomset(rnnow)
 
-          xin=-ctdis*sin(csrad)+htl*cos(csrad)*(2 * rnnow - 1) ! Source position
+          xin=-ctdiss*sin(csrad)+htl*cos(csrad)*(2 * rnnow - 1) ! Source position
           yin=0.0d0
-          zin=-ctdis*cos(csrad)-htl*sin(csrad)*(2 * rnnow - 1)
+          zin=-ctdiss*cos(csrad)-htl*sin(csrad)*(2 * rnnow - 1)
         end if
 
 !       ----------------------
@@ -983,7 +1010,7 @@
         if(beam.eq.1) then
           call randomset(rnnow)
 
-          theta_rnd=translation_pitch*translation_times/(4*ctdis)
+          theta_rnd=translation_pitch*translation_times/(4*ctdiss)
           uin=sin(csrad+(2*rnnow-1)*atan(theta_rnd))
           vin=0
           win=cos(csrad+(2*rnnow-1)*atan(theta_rnd))
