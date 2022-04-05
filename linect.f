@@ -456,20 +456,20 @@
 !-----------------------------------------------
 !Detector Region(SUM)[geomkind is BOX]
 !-----------------------------------------------
-      ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2)*cos(csrad)
-      ctgeom(2,cti)=-cty/2
-      ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2)*sin(csrad)
-      ctgeom(4,cti)=-ctx*cos(csrad)*translation_times
-      ctgeom(5,cti)=0.0e0
-      ctgeom(6,cti)=ctx*sin(csrad)*translation_times
-      ctgeom(7,cti)=0.0e0
-      ctgeom(8,cti)=cty
-      ctgeom(9,cti)=0.0e0
-      ctgeom(10,cti)=ctz*sin(csrad)
-      ctgeom(11,cti)=0.0e0
-      ctgeom(12,cti)=ctz*cos(csrad)
-      write(ifti,*) geomkind(6),cti,(ctgeom(cto,cti),cto=1,12)
-      cti=cti+1
+      !ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2)*cos(csrad)
+      !ctgeom(2,cti)=-cty/2
+      !ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2)*sin(csrad)
+      !ctgeom(4,cti)=-ctx*cos(csrad)*translation_times
+      !ctgeom(5,cti)=0.0e0
+      !ctgeom(6,cti)=ctx*sin(csrad)*translation_times
+      !ctgeom(7,cti)=0.0e0
+      !ctgeom(8,cti)=cty
+      !ctgeom(9,cti)=0.0e0
+      !ctgeom(10,cti)=ctz*sin(csrad)
+      !ctgeom(11,cti)=0.0e0
+      !ctgeom(12,cti)=ctz*cos(csrad)
+      !write(ifti,*) geomkind(6),cti,(ctgeom(cto,cti),cto=1,12)
+      !cti=cti+1
 !-----------------------------------------------
 !Detector Region[geomkind is BOX]
 !-----------------------------------------------
@@ -694,9 +694,10 @@
 !-----------------------------------------------
 !Definition of Detector Zone
 !-----------------------------------------------
+120   FORMAT('Z',I0.4,' +',I0)
+
       do transi=0,translation_times-1
-        write(ifti,120) nor,nor+1 ! Z0002  +3
-120     FORMAT('Z',I0.4,' +',I0)
+        write(ifti,120) nor,nor ! Z0002  +2
         nor=nor+1
       end do
 !SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
@@ -705,28 +706,31 @@
 !-----------------------------------------------
 130   FORMAT('Z',I0.4,' +',I0)
 140   FORMAT(' -',I0)
-      write(ifti,130,advance='no') nor,nor+1
-      write(ifti,140,advance='no') 1 !subtract detector zone
-      write(ifti,140) nor+2 !subtract sample zone
+      write(ifti,130,advance='no') nor,nor ! Z0513  +513  -1 -2 -3... -512
+      do transi=0,translation_times-1 !subtract detector zones
+        write(ifti,140) transi ! 
+      end do
+
+      !write(ifti,140,advance='no') 1 !subtract detector zone
+      write(ifti,140) nor+1 !subtract sample zone
       nor=nor+1
 
-      write(ifti,130,advance='no') nor,nor+1 !sample zone
+      write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
       write(ifti,140,advance='no') nor+2  !subtract rod 1
-      write(ifti,140) nor+3 !subtract rod 2
-      if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
-        write(ifti,140) nor+4 !subtract rod 3
-        write(ifti,140) nor+5 !subtract rod 4
-      end if
+      write(ifti,140,advance='no') nor+3 !subtract rod 2
+      write(ifti,140,advance='no') nor+4 !subtract rod 3
+      write(ifti,140) nor+5 !subtract rod 4
+
       nor=nor+1
 
-      write(ifti,130) nor,nor+1
+      write(ifti,130) nor,nor+5 !rod1  Z0515 +520
       nor=nor+1
-      write(ifti,130) nor,nor+1
+      write(ifti,130) nor,nor+5
       nor=nor+1
       if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
-        write(ifti,130) nor,nor+1 !rod 3
+        write(ifti,130) nor,nor+5 !rod 3
         nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 4
+        write(ifti,130) nor,nor+5 !rod 4
         nor=nor+1
       end if
 !SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
@@ -736,7 +740,7 @@
 !Definition of End Zone
 !-----------------------------------------------
 150   FORMAT('Z',I0.4,' +',I0' -',I0)
-      write(ifti,150) nor,nor+1,translation_times+2
+      write(ifti,150) nor,nor+5,translation_times+1  !Z0519 +524 -513
       write(ifti,*) geomkind(15)
 
 !-----------------------------------------------
