@@ -352,7 +352,7 @@
         end do
       end do
 
-      chard(1) = 0.05d0
+      chard(1) = 0.01d0
       chard(2) = 0.05d0
       chard(3) = 0.05d0
       chard(4) = 0.05d0
@@ -453,6 +453,8 @@
       cti=1
       nor=1
 
+
+!110   FORMAT(a, i4, 12e12.6e2)
 !-----------------------------------------------
 !Detector Region(SUM)[geomkind is BOX]
 !-----------------------------------------------
@@ -475,8 +477,10 @@
 !-----------------------------------------------
       do transi=0,translation_times-1
         ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2)*cos(csrad)-transi*xl
+        !ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2-transi*xl)*cos(csrad)
         ctgeom(2,cti)=-cty/2
         ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2)*sin(csrad)+transi*zl
+        !ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2-transi*xl)*sin(csrad)
         ctgeom(4,cti)=-ctx*cos(csrad)
         ctgeom(5,cti)=0.0e0
         ctgeom(6,cti)=ctx*sin(csrad)
@@ -629,7 +633,7 @@
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.5e0 !radius
+        ctgeom(7,cti)=1.0e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -706,31 +710,31 @@
 !-----------------------------------------------
 130   FORMAT('Z',I0.4,' +',I0)
 140   FORMAT(' -',I0)
-      write(ifti,130,advance='no') nor,nor ! Z0513  +513  -1 -2 -3... -512
+      write(ifti,130,advance='no') nor,nor ! Z0513  +513  -1 -2... -512 -514
       do transi=0,translation_times-1 !subtract detector zones
-        write(ifti,140) transi ! 
+        write(ifti,140, advance='no') transi+1 ! 
       end do
 
       !write(ifti,140,advance='no') 1 !subtract detector zone
       write(ifti,140) nor+1 !subtract sample zone
       nor=nor+1
 
-      write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
-      write(ifti,140,advance='no') nor+2  !subtract rod 1
-      write(ifti,140,advance='no') nor+3 !subtract rod 2
-      write(ifti,140,advance='no') nor+4 !subtract rod 3
-      write(ifti,140) nor+5 !subtract rod 4
+      write(ifti,130,advance='no') nor,nor !sample zone  Z0514  +514 -515 -516 -517 -518
+      write(ifti,140,advance='no') nor+1  !subtract rod 1
+      write(ifti,140,advance='no') nor+2 !subtract rod 2
+      write(ifti,140,advance='no') nor+3 !subtract rod 3
+      write(ifti,140) nor+4 !subtract rod 4
 
       nor=nor+1
 
-      write(ifti,130) nor,nor+5 !rod1  Z0515 +520
+      write(ifti,130) nor,nor !rod1  Z0515 +515
       nor=nor+1
-      write(ifti,130) nor,nor+5
+      write(ifti,130) nor,nor
       nor=nor+1
       if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
-        write(ifti,130) nor,nor+5 !rod 3
+        write(ifti,130) nor,nor !rod 3
         nor=nor+1
-        write(ifti,130) nor,nor+5 !rod 4
+        write(ifti,130) nor,nor !rod 4
         nor=nor+1
       end if
 !SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
@@ -740,7 +744,7 @@
 !Definition of End Zone
 !-----------------------------------------------
 150   FORMAT('Z',I0.4,' +',I0' -',I0)
-      write(ifti,150) nor,nor+5,translation_times+1  !Z0519 +524 -513
+      write(ifti,150) nor,nor,translation_times+1  !Z0519 +519 -513
       write(ifti,*) geomkind(15)
 
 !-----------------------------------------------
@@ -788,7 +792,7 @@
         write(ifti,fmt='(a)',advance='no') " 5"
         write(ifti,fmt='(a)',advance='no') " 4"
       else if(phantom.eq.4) then
-        write(ifti,fmt='(a)',advance='no') " 3"
+        write(ifti,fmt='(a)',advance='no') " 2"
         write(ifti,fmt='(a)',advance='no') " 3"
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 5"
