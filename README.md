@@ -1,6 +1,6 @@
-linect.f　領域非分割バージョン（激おそ、 TVALエラーは起こらない）
+linect.f　領域そのままバージョン　TVALエラー閾値をいじってある
 
-linect_div8.f 領域分割（８領域、TVALエラーは？？）バージョン
+linect_div8.f 領域分割（８領域、TVALエラーは？？）バージョン(not in use)
 
 
 パラメータ（Parameter.csvに記述）
