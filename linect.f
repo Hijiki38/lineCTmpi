@@ -575,43 +575,22 @@
 !-----------------------------------------------
 ! If you want to modify the geometry of the sample, change this part.
 
-! ---- "Onion Phantom" ----
+! ---- "Single rod Phantom" ----
       if(phantom.eq.0) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=6.0e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.5e0
-        ctgeom(7,cti)=2.0e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0
+        ctgeom(1,cti)=0.0e0 !ph1
         ctgeom(2,cti)=-0.75e0
         ctgeom(3,cti)=0.0e0
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=1.0e0 !radius
+        ctgeom(7,cti)=0.15e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
       end if
 
-! ---- "Two rod Phantom" ----
+! ---- "Two rods Phantom" ----
       if(phantom.eq.1 .or. phantom.eq.2) then
         ctgeom(1,cti)=0.0e0
         ctgeom(2,cti)=-0.75e0
@@ -647,7 +626,7 @@
         nos=nos+1
       end if
 
-      ! ---- "Four rod Phantom" ----
+      ! ---- "Four rods Phantom" ----
       if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
         ctgeom(1,cti)=0.0e0
         ctgeom(2,cti)=-0.75e0
@@ -796,9 +775,7 @@
 !-----------------------------------------------
 
       if(phantom.eq.0) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 5"
-        write(ifti,fmt='(a)',advance='no') " 6"
+        write(ifti,fmt='(a)',advance='no') " 3" !Al
       else if(phantom.eq.1) then
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 6"
