@@ -720,24 +720,29 @@
       write(ifti,140) nor+2 !subtract sample zone
       nor=nor+1
 
-      write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
-      write(ifti,140,advance='no') nor+2  !subtract rod 1
-      write(ifti,140,advance='no') nor+3 !subtract rod 2
-      write(ifti,140,advance='no') nor+4 !subtract rod 3
-      write(ifti,140) nor+5 !subtract rod 4
+      if(phantom.eq.0) then
+	  write(ifti,130) nor,nor+1
+	  nor=nor+1
+	else
+        write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
+        write(ifti,140,advance='no') nor+2  !subtract rod 1
+        write(ifti,140,advance='no') nor+3 !subtract rod 2
+        write(ifti,140,advance='no') nor+4 !subtract rod 3
+        write(ifti,140) nor+5 !subtract rod 4
 
-      nor=nor+1
+        nor=nor+1
 
-      write(ifti,130) nor,nor+1 !rod1  Z0515 +516
-      nor=nor+1
-      write(ifti,130) nor,nor+1
-      nor=nor+1
-      if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
-        write(ifti,130) nor,nor+1 !rod 3
+        write(ifti,130) nor,nor+1 !rod1  Z0515 +516
         nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 4
+        write(ifti,130) nor,nor+1
         nor=nor+1
-      end if
+        if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
+          write(ifti,130) nor,nor+1 !rod 3
+          nor=nor+1
+          write(ifti,130) nor,nor+1 !rod 4
+          nor=nor+1
+        end if
+	end if
 !SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
 
 
@@ -775,7 +780,7 @@
 !-----------------------------------------------
 
       if(phantom.eq.0) then
-        write(ifti,fmt='(a)',advance='no') " 3" !Al
+        write(ifti,fmt='(a)',advance='no') " 4" !Cu
       else if(phantom.eq.1) then
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 6"
