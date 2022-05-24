@@ -815,10 +815,10 @@
         write(ifti,fmt='(a)',advance='no') " 4"
       else if(phantom.eq.4) then
         write(ifti,fmt='(a)',advance='no') " 2"
-        write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 5"
-        write(ifti,fmt='(a)',advance='no') " 6"
+        write(ifti,fmt='(a)',advance='no') " 2"!" 3"
+        write(ifti,fmt='(a)',advance='no') " 2"!" 4"
+        write(ifti,fmt='(a)',advance='no') " 2"!" 5"
+        write(ifti,fmt='(a)',advance='no') " 2"!" 6"
       else if(phantom.eq.5) then
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 2"
