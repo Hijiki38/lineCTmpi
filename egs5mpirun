@@ -84,10 +84,9 @@
 #
 # **********************************************************************
 
-BASKET=/home/t.hotta/Data/egs5
-MPI_BASKET=/home/t.hotta/Data/egs5mpi
-MY_MACHINE=Linux-OpenMPI
-#OPT_FLAGS="-O2"
+BASKET=/home/thotta/egs5
+MPI_BASKET=/home/thotta/egs5mpi
+MY_MACHINE="Linux-OpenMPI"
 OPT_FLAGS=""
 MPI_SIZE=12
 MPI_COMPILER="mpif77"

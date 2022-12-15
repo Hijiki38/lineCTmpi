@@ -47,7 +47,7 @@
 #   OPT_LEVEL=
 #
 # **********************************************************************
-BASKET="/home/t.hotta/Data/egs5"
+BASKET="/home/thotta/egs5"
 # MY_MACHINE=Linux
 # MY_MACHINE=ifort
 MY_MACHINE=gfort

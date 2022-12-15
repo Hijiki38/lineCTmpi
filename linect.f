@@ -147,7 +147,7 @@
       ifto_original=39    ! Output unit number for pictfile
       ifto_dummy=41   !Output unit number for dummy pictfile
       apch=1     ! Initialization of apch
-      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues)
+      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues, 6:small, 7:smallfour)
       beam=1     ! Beam Type (0:Parallel, 1:Fan)
 !-----------------------------------------------------------------------
 ! initiallization variables
@@ -300,8 +300,8 @@
 !     ---------------------------------
       write(6,*) "pegs5-call"
       flush(6)
-      !nmed=5
-      nmed=7
+      !nmed=6
+      nmed=9
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -325,13 +325,21 @@
 !      medarr(9)='NI                      '
 
 
+!     medarr(1)='CDTE                    '
+!     medarr(2)='AIR-AT-NTP              '
+!     medarr(3)='AL                      '
+!     medarr(4)='CU                      '
+!     medarr(5)='TI                      '
+!     medarr(6)='C                       '
+!     medarr(7)='H2O                     '
+
+
       medarr(1)='CDTE                    '
       medarr(2)='AIR-AT-NTP              '
-      medarr(3)='AL                      '
-      medarr(4)='CU                      '
-      medarr(5)='TI                      '
-      medarr(6)='C                       '
-      medarr(7)='H2O                     '
+      medarr(3)='I1                      '
+      medarr(4)='I2                      '
+      medarr(5)='I3                      '
+      medarr(6)='H2O                     '
 
 
       if (phantom.eq.5) then
@@ -645,7 +653,7 @@
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.15e0 !radius
+        ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -656,7 +664,7 @@
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.15e0 !radius
+        ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -667,7 +675,7 @@
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.15e0 !radius
+        ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -678,7 +686,91 @@
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
         ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.15e0 !radius
+        ctgeom(7,cti)=0.25e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+      end if
+
+      ! ---- "Single rod Phantom small" ----
+      if(phantom.eq.6) then
+        ctgeom(1,cti)=0.0e0 
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.25e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.0e0 !ph1
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.075e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+      end if
+
+      ! ---- "Four rods Phantom small" ----
+      if(phantom.eq.7) then
+        ctgeom(1,cti)=0.0e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ctgeom(7,cti)=0.25e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.125e0 !ph1
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.05e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.0e0 !ph2
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.125e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.05e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=-0.125e0 !ph3
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.05e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.0e0 !ph4
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=-0.125e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ! ctgeom(7,cti)=0.15e0
+        ctgeom(7,cti)=0.05e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -723,7 +815,15 @@
       if(phantom.eq.0) then
 	  write(ifti,130) nor,nor+1
 	  nor=nor+1
-	else
+      else if(phantom.eq.6) then
+        write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
+        write(ifti,140) nor+2  !subtract rod 1
+
+        nor=nor+1
+
+        write(ifti,130) nor,nor+1 !rod1  Z0515 +516
+        nor=nor+1
+      else
         write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
         write(ifti,140,advance='no') nor+2  !subtract rod 1
         write(ifti,140,advance='no') nor+3 !subtract rod 2
@@ -736,13 +836,13 @@
         nor=nor+1
         write(ifti,130) nor,nor+1
         nor=nor+1
-        if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
-          write(ifti,130) nor,nor+1 !rod 3
-          nor=nor+1
-          write(ifti,130) nor,nor+1 !rod 4
-          nor=nor+1
-        end if
-	end if
+        !if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5 .or. phantom.eq.7) then
+        write(ifti,130) nor,nor+1 !rod 3
+        nor=nor+1
+        write(ifti,130) nor,nor+1 !rod 4
+        nor=nor+1
+        !end if
+      end if
 !SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
 
 
@@ -780,7 +880,7 @@
 !-----------------------------------------------
 
       if(phantom.eq.0) then
-        write(ifti,fmt='(a)',advance='no') " 4" !Cu
+        write(ifti,fmt='(a)',advance='no') " 5" !Ti
       else if(phantom.eq.1) then
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 6"
@@ -807,9 +907,26 @@
         write(ifti,fmt='(a)',advance='no') " 5"
         write(ifti,fmt='(a)',advance='no') " 7"
         write(ifti,fmt='(a)',advance='no') " 9"
+      else if(phantom.eq.6) then
+        write(ifti,fmt='(a)',advance='no') " 6"
+        write(ifti,fmt='(a)',advance='no') " 5"
+      else if(phantom.eq.7) then
+        write(ifti,fmt='(a)',advance='no') " 6"
+        write(ifti,fmt='(a)',advance='no') " 2"
+        write(ifti,fmt='(a)',advance='no') " 3"
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 5"
       end if
 
 !SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
+
+      !medarr(1)='CDTE                    '
+      !medarr(2)='AIR-AT-NTP              '
+      !medarr(3)='I1                      '
+      !medarr(4)='I2                      '
+      !medarr(5)='I3                      '
+      !medarr(6)='H2O                     '
+
       !medarr(1)='CDTE                    '
       !medarr(2)='AIR-AT-NTP              '
       !medarr(3)='AL                      '
@@ -1504,7 +1621,7 @@ c         write(*,*) 'srzone:3'
  9200 format(' TVAL ERROR : iq,ir,x,y,z,u,v,w,tval=',2I3,1P7E12.5)
           idisc=1
           itverr=itverr+1
-          if(itverr.ge.1000) then
+          if(itverr.ge.10000) then
             stop
           end if
           return
