@@ -342,7 +342,7 @@
       medarr(6)='H2O                     '
 
 
-      if (phantom.eq.5) then
+      if (phantom.eq.5 .or. phantom.eq.8) then
         medarr(1)='CDTE                    '
         medarr(2)='AIR-AT-NTP              '
         medarr(3)='AL                      '
