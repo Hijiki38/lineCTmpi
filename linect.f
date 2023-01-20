@@ -794,7 +794,7 @@
         ctgeom(4,cti)=0.75e0
         ctgeom(5,cti)=-0.4e0
         ctgeom(6,cti)=-0.1e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,7)
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
         cti=cti+1
         nos=nos+1
         ctgeom(1,cti)=0.1e0 !ph2
@@ -803,7 +803,7 @@
         ctgeom(4,cti)=0.75e0
         ctgeom(5,cti)=0.1e0
         ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,7)
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
         cti=cti+1
         nos=nos+1
         ctgeom(1,cti)=-0.5e0 !ph3
@@ -812,7 +812,7 @@
         ctgeom(4,cti)=0.75e0
         ctgeom(5,cti)=0.1e0
         ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,7)
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
         cti=cti+1
         nos=nos+1
         ctgeom(1,cti)=-0.5e0 !ph4
@@ -821,7 +821,7 @@
         ctgeom(4,cti)=0.75e0
         ctgeom(5,cti)=-0.4e0
         ctgeom(6,cti)=-0.1e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,7)
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
         cti=cti+1
         nos=nos+1
       end if
