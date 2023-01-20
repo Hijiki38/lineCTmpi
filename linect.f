@@ -776,6 +776,56 @@
         nos=nos+1
       end if
 
+      ! ---- "Four rods Phantom square" ----
+      if(phantom.eq.8) then
+        ctgeom(1,cti)=0.0e0
+        ctgeom(2,cti)=-0.75e0
+        ctgeom(3,cti)=0.0e0
+        ctgeom(4,cti)=0.0e0
+        ctgeom(5,cti)=1.5e0
+        ctgeom(6,cti)=0.0e0
+        ctgeom(7,cti)=0.7e0 !radius
+          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.1e0 !ph1
+        ctgeom(2,cti)=0.5e0
+        ctgeom(3,cti)=-0.75e0
+        ctgeom(4,cti)=0.75e0
+        ctgeom(5,cti)=-0.4e0
+        ctgeom(6,cti)=-0.1e0
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=0.1e0 !ph2
+        ctgeom(2,cti)=0.5e0
+        ctgeom(3,cti)=-0.75e0
+        ctgeom(4,cti)=0.75e0
+        ctgeom(5,cti)=0.1e0
+        ctgeom(6,cti)=0.4e0
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=-0.5e0 !ph3
+        ctgeom(2,cti)=-0.1e0
+        ctgeom(3,cti)=-0.75e0
+        ctgeom(4,cti)=0.75e0
+        ctgeom(5,cti)=0.1e0
+        ctgeom(6,cti)=0.4e0
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=-0.5e0 !ph4
+        ctgeom(2,cti)=-0.1e0
+        ctgeom(3,cti)=-0.75e0
+        ctgeom(4,cti)=0.75e0
+        ctgeom(5,cti)=-0.4e0
+        ctgeom(6,cti)=-0.1e0
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,7)
+        cti=cti+1
+        nos=nos+1
+      end if
+
 !SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1
 
 
@@ -901,7 +951,7 @@
         write(ifti,fmt='(a)',advance='no') " 2"!" 4"
         write(ifti,fmt='(a)',advance='no') " 2"!" 5"
         write(ifti,fmt='(a)',advance='no') " 2"!" 6"
-      else if(phantom.eq.5) then
+      else if(phantom.eq.5 .or. phantom.eq.8) then
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 2"
         write(ifti,fmt='(a)',advance='no') " 5"
