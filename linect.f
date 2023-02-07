@@ -124,7 +124,8 @@
 	    write(rank_str, '(I6.6)') mpi_rank
 
       !open(6,FILE='egs5job.out',STATUS='unknown')
-      open(40,FILE='source150kv.csv',STATUS='old')
+      !open(40,FILE='source150kv.csv',STATUS='old')
+      open(40,FILE='source270kv_theta60_cu1mm.csv',STATUS='old')
       open(50,FILE='parameter.csv',STATUS='old')
 
 
@@ -301,7 +302,7 @@
       write(6,*) "pegs5-call"
       flush(6)
       !nmed=6
-      nmed=9
+      nmed=7
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -324,22 +325,22 @@
 !      medarr(8)='C                       '
 !      medarr(9)='NI                      '
 
+	if (phantom.eq.3) then
+        medarr(1)='CDTE                    '
+        medarr(2)='AIR-AT-NTP              '
+        medarr(3)='AL                      '
+        medarr(4)='CU                      '
+        medarr(5)='TI                      '
+        medarr(6)='C                       '
+        medarr(7)='H2O                     '
+	end if
 
-!     medarr(1)='CDTE                    '
-!     medarr(2)='AIR-AT-NTP              '
-!     medarr(3)='AL                      '
-!     medarr(4)='CU                      '
-!     medarr(5)='TI                      '
-!     medarr(6)='C                       '
-!     medarr(7)='H2O                     '
-
-
-      medarr(1)='CDTE                    '
-      medarr(2)='AIR-AT-NTP              '
-      medarr(3)='I1                      '
-      medarr(4)='I2                      '
-      medarr(5)='I3                      '
-      medarr(6)='H2O                     '
+      !medarr(1)='CDTE                    '
+      !medarr(2)='AIR-AT-NTP              '
+      !medarr(3)='I1                      '
+      !medarr(4)='I2                      '
+      !medarr(5)='I3                      '
+      !medarr(6)='H2O                     '
 
 
       if (phantom.eq.5 .or. phantom.eq.8) then
@@ -367,8 +368,8 @@
       chard(5) = 0.05d0
       chard(6) = 0.05d0
       chard(7) = 0.05d0
-      chard(8) = 0.05d0
-      chard(9) = 0.05d0
+      !chard(8) = 0.05d0
+      !chard(9) = 0.05d0
       !chard(10) = 0.1d0
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
@@ -652,8 +653,8 @@
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
+        ctgeom(7,cti)=0.15e0
+        !ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -663,8 +664,8 @@
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
+        ctgeom(7,cti)=0.15e0
+        !ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -674,8 +675,8 @@
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
+        ctgeom(7,cti)=0.15e0
+        !ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -685,8 +686,8 @@
         ctgeom(4,cti)=0.0e0
         ctgeom(5,cti)=1.5e0
         ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
+        ctgeom(7,cti)=0.15e0
+        !ctgeom(7,cti)=0.25e0 !radius
           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
         cti=cti+1
         nos=nos+1
@@ -940,7 +941,7 @@
         write(ifti,fmt='(a)',advance='no') " 3"
         write(ifti,fmt='(a)',advance='no') " 7"
       else if(phantom.eq.3) then
-        write(ifti,fmt='(a)',advance='no') " 2"
+        write(ifti,fmt='(a)',advance='no') " 3" !" 2" !back ground is Al
         write(ifti,fmt='(a)',advance='no') " 3"
         write(ifti,fmt='(a)',advance='no') " 6"
         write(ifti,fmt='(a)',advance='no') " 5"
@@ -998,7 +999,7 @@
       ! medarr(8)='C                       '
       ! medarr(9)='ABS                     '
 
-      !!FOUR FourMetal
+      !!FOUR Metal
       ! medarr(1)='CDTE                    '
       ! medarr(2)='AIR-AT-NTP              '
       ! medarr(3)='AL                      '
