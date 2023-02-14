@@ -125,7 +125,7 @@
 
       !open(6,FILE='egs5job.out',STATUS='unknown')
       !open(40,FILE='source150kv.csv',STATUS='old')
-      open(40,FILE='source270kv_theta60_cu1mm.csv',STATUS='old')
+      open(40,FILE='source270kv_theta60_cu0.3mm.csv',STATUS='old')
       open(50,FILE='parameter.csv',STATUS='old')
 
 
@@ -1190,7 +1190,7 @@
         if(beam.eq.1) then
           call randomset(rnnow)
 
-          theta_rnd=translation_pitch*translation_times/(4*ctdiss)
+          theta_rnd=translation_pitch*translation_times/(2*ctdisd)
           uin=sin(csrad+(2*rnnow-1)*atan(theta_rnd))
           vin=0
           win=cos(csrad+(2*rnnow-1)*atan(theta_rnd))
