@@ -84,8 +84,8 @@
 #
 # **********************************************************************
 
-BASKET=/home/thotta/egs5
-MPI_BASKET=/home/thotta/egs5mpi
+BASKET=./egs5
+MPI_BASKET=./egs5mpi
 MY_MACHINE="Linux-OpenMPI"
 OPT_FLAGS=""
 MPI_SIZE=12

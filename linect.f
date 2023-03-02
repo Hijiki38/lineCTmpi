@@ -864,8 +864,8 @@
       nor=nor+1
 
       if(phantom.eq.0) then
-	  write(ifti,130) nor,nor+1
-	  nor=nor+1
+	     write(ifti,130) nor,nor+1
+	     nor=nor+1
       else if(phantom.eq.6) then
         write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
         write(ifti,140) nor+2  !subtract rod 1
