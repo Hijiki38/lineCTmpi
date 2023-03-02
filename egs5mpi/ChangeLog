@@ -1,0 +1,3 @@
+2013.1.25 Change egs5mpirun script
+2012.5.9 Added Cygwin-MPICH2, MacOSX-OpenMPI settings
+2012.04.19 Release EGS-MPI
