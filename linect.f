@@ -95,6 +95,7 @@
       character*24 medarr(MXMED)
       character*3  geomkind(15)
       character*8  geomzone(100)
+      character*22 savepath
       character*22 degfile
       character*25 pictfile
 
@@ -150,6 +151,7 @@
       apch=1     ! Initialization of apch
       phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues, 6:small, 7:smallfour)
       beam=1     ! Beam Type (0:Parallel, 1:Fan)
+      savepath="share" ! Path for output
 !-----------------------------------------------------------------------
 ! initiallization variables
 !-----------------------------------------------------------------------
@@ -409,6 +411,8 @@
 
       ctang=360e0/ctstep*stepi
 
+      call chdir("./"//savepath)
+
       write (degfile,'(I3.3,F0.2,".",A,".csv")') int(ctang),
      *   ctang-int(ctang),rank_str
       flush(6)
@@ -423,6 +427,8 @@
           phs(i,j)=0.0
         end do
       end do
+
+      call chdir("../")
 
 !for MPI
       ! if(mpi_rank.eq.0) then

@@ -88,7 +88,7 @@ BASKET=./egs5
 MPI_BASKET=./egs5mpi
 MY_MACHINE="Linux-OpenMPI"
 OPT_FLAGS=""
-MPI_SIZE=12
+MPI_SIZE=10
 MPI_COMPILER="mpif77"
 MPI_RUN="mpirun"
 
@@ -386,11 +386,13 @@ else
         echo " "
         echo " Ready for user input:"
         echo " "
-        time $MPI_RUN -np $MPI_SIZE $PWD/egs5job.exe
+        #time $MPI_RUN -np $MPI_SIZE $PWD/egs5job.exe
+        time $MPI_RUN -np $MPI_SIZE -mca plm_rsh_agent "" $PWD/egs5job.exe
     else
         echo " "
         echo " Running egs5job.exe in background"
-        time $MPI_RUN -np $MPI_SIZE $PWD/egs5job.exe 2>&1 > $PWD/egs5job.log &
+        #time $MPI_RUN -np $MPI_SIZE $PWD/egs5job.exe 2>&1 > $PWD/egs5job.log &
+        time $MPI_RUN -np $MPI_SIZE -mca plm_rsh_agent "" $PWD/egs5job.exe 2>&1 > $PWD/egs5job.log &
     fi
 fi
 
