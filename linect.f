@@ -61,7 +61,7 @@
       integer,parameter :: maxch = 1000    !max channel of the detector
       integer,parameter :: maxtrans = 4096 !150 !max translation times
       integer,parameter :: maxspec = 18000  !max row of source.csv
-      integer,parameter :: maxparam = 9
+      integer,parameter :: maxparam = 10
 
       common/totals/depe(4096),deltae,maxpict,transi
       real*8 depe,deltae,spec
@@ -84,7 +84,8 @@
       integer
      * i,icases,idin,ie,ifti,ifto,ifct,imed,ireg,nlist,j,ntype,
      * cti,l,nos,cto,ctp,translation_times,ctstep,stepi,initstep,
-     * ifto_original,ifto_dummy,nor,prmi,phantom,beam!,mpi_ifct
+     * haltstep,npr,ifto_original,ifto_dummy,nor,prmi,
+     * phantom,beam!,mpi_ifct
 
       !for counting time
       integer(int32) :: time_begin_c,time_end_c, CountPerSec, CountMax
@@ -161,6 +162,7 @@
       end do
 
       !ctdis=-1.0d0
+      npr = 1
       ctdiss=-1.0d0
       ctdisd=-1.0d0
       ctstep=-1
@@ -206,9 +208,10 @@
 90    continue
       apch=apch-1
       close(unit=40)
-      !ctdis = parameters(1)
-      ctdiss = parameters(1)
-      ctdisd = parameters(2)
+      ctdiss = parameters(npr)
+      npr=npr+1
+      ctdisd = parameters(npr)
+      npr=npr+1
       ctdisd = ctdisd - ctdiss
 !      read *, ctdis
       !ctdis=ctdis/2
@@ -217,7 +220,8 @@
         flush(6)
         stop
       end if
-      translation_pitch = parameters(3)
+      translation_pitch = parameters(npr)
+      npr=npr+1
 
 !      read *, translation_pitch
       if(translation_pitch.le.0.0) then
@@ -230,7 +234,8 @@
       cty = translation_pitch
       !ctz = translation_pitch
 
-      translation_times = parameters(4)
+      translation_times = parameters(npr)
+      npr=npr+1
 !      read *, translation_times
       htl=((translation_times-1)*translation_pitch)/2 !half translation length
       if(mod(translation_times,2).ne.0.or.translation_times.lt.0) then
@@ -242,24 +247,31 @@
         flush(6)
         stop
       end if
-      ctstep = parameters(5)
+      ctstep = parameters(npr)
+      npr=npr+1
 !      read *, ctstep
       if(ctstep.le.0.0.or.ctstep.gt.3600.0) then
         stop
       end if
-      totalcases = parameters(6)
+      totalcases = parameters(npr)
+      npr=npr+1
 !      read *, ncases
       if(totalcases.lt.1) then
         write(6,*) "History number should be set at least one"
         flush(6)
         stop
       end if
-      initstep = parameters(7)
-      phantom = parameters(8)
+      initstep = parameters(npr)
+      npr=npr+1
+      haltstep = parameters(npr)
+      npr=npr+1
+      phantom = parameters(npr)
+      npr=npr+1
       if(phantom.lt.0 .or. phantom.gt.5) then
         write(6,*) "phantom number you entered is not defined"
       end if
-      beam = parameters(9)
+      beam = parameters(npr)
+      npr=npr+1
       if(beam.lt.0 .or. beam.gt.1) then
         write(6,*) "beam type number you entered is not defined"
       end if
@@ -271,6 +283,7 @@
       print *,"             STEPS:",ctstep
       print *,"    HISTORY NUMBER:",totalcases
       print *,"      INITIAL STEP:",initstep
+      print *,"         HALT STEP:",haltstep
       print *,"      PHANTOM TYPE:",phantom
       print *,"         BEAM TYPE:",beam
       print *,"--------------------"
@@ -401,7 +414,7 @@
 
 
                                              ! -------------------------
-      do stepi=initstep,ctstep-1                    ! Begining of Rotation loop
+      do stepi=initstep,haltstep-1!ctstep-1  ! Begining of Rotation loop
                                              ! -------------------------
       write(6,*) 'Read cg-related data'
       flush(6)

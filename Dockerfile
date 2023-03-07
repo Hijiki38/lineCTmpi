@@ -16,7 +16,8 @@ RUN cd openmpi-4.0.7 \
     && ./configure --prefix=/opt/openMPI CC=gcc CXX=g++ F77=gfortran FC=gfortran \
     && make \
     && make install
-RUN echo PATH=/opt/openMPI/bin:\$PATH >> ~/.bashrc \
+#以下のパス設定はコンテナに反映されておらず、.ymlで同じことをしているため不要かもしれない
+RUN echo PATH=/opt/openMPI/bin:\$PATH >> ~/.bashrc \ 
     && echo LD_LIBRARY_PATH=/opt/openMPI/lib:\$LD_LIBRARY_PATH >> ~/.bashrc \
     && echo MANPATH=/opt/openMPI/share/man:\$MANPATH >> ~/.bashrc \
     && echo export PATH LD_LIBRARY_PATH MANPATH >> ~/.bashrc \
