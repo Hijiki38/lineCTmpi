@@ -392,12 +392,12 @@ else
       then
         echo " "
         echo " Running egs5job.exe"
-        time $MPI_RUN -np $MPI_SIZE -mca plm_rsh_agent "" $PWD/egs5job.exe 2>&1 > $PWD/egs5job.log
+        time $MPI_RUN -np $MPI_SIZE -mca plm_rsh_agent "" $PWD/egs5job.exe 2>&1 > $PWD/$2/egs5job.log
     else
         echo " "
         echo " Running egs5job.exe in background"
         #time $MPI_RUN -np $MPI_SIZE $PWD/egs5job.exe 2>&1 > $PWD/egs5job.log &
-        time $MPI_RUN -np $MPI_SIZE -mca plm_rsh_agent "" $PWD/egs5job.exe 2>&1 > $PWD/egs5job.log &
+        time $MPI_RUN -np $MPI_SIZE -mca plm_rsh_agent "" $PWD/egs5job.exe 2>&1 > $PWD/$2/egs5job.log &
     fi
 fi
 
