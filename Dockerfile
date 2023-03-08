@@ -8,7 +8,8 @@ RUN cd app \
     && yum -y install perl \
     && yum -y install make \
     && yum -y install sudo
-RUN chmod -R 777 /app
+RUN chmod -R 777 /app \
+    && chmod -R 777 /app/share
 RUN wget https://www.open-mpi.org/software/ompi/v4.0/downloads/openmpi-4.0.7.tar.gz --no-check-certificate \
     && tar xvf openmpi-4.0.7.tar.gz
 RUN cd openmpi-4.0.7 \
