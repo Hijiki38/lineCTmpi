@@ -84,11 +84,13 @@
 #
 # **********************************************************************
 
+# commandline args 1:operation mode, 2:log path, 3:CPU NUM
+
 BASKET=./egs5
 MPI_BASKET=./egs5mpi
 MY_MACHINE="Linux-OpenMPI"
 OPT_FLAGS=""
-MPI_SIZE=10
+MPI_SIZE=$3
 MPI_COMPILER="mpif77"
 MPI_RUN="mpirun"
 

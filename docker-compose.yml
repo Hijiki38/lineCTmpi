@@ -32,7 +32,7 @@ services:
       && echo "BEAM,$PAR_BEAM" >> /app/parameter.csv 
       && echo "PATH,$PAR_PATH" >> /app/parameter.csv 
       && cp -f "$INPFILE.inp" ./linect.inp 
-      && echo "$FFILE" | ./egs5mpirun foreground $PAR_PATH'
+      && echo "$FFILE" | ./egs5mpirun foreground $PAR_PATH $NUM_CPU'
     #&& /bin/bash'
     #command: /bin/bash -c './startup.sh "$FFILE" "$INPFILE" "$PAR_SOD" "$PAR_SDD" "$PAR_PTCH" "$PAR_TTMS" "$PAR_STEP" "$PAR_HIST" "$PAR_ISTP" "$PAR_PNTM" "$PAR_BEAM"'
 
