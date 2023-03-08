@@ -1,7 +1,8 @@
 version: '3'
 services:
   slegs:
-    build: .
+    build:
+      context: .
     image: slegs5
     container_name: slegs
     #restart: always
