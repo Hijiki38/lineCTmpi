@@ -1,3 +1,7 @@
 @echo off
-powershell.exe -ExecutionPolicy Bypass -File "./ssh_remote_exec.ps1"
+set currentDir=%cd%
+powershell.exe -ExecutionPolicy Bypass -File "./ssh_remote_exec_para.ps1" -currentDir "%currentDir%"
 pause
+
+
+
