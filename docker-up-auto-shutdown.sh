@@ -7,11 +7,10 @@ ISTP=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/comput
 HSTP=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/hstp")
 
 # .env書き換え
-sed -i "s/CLOUD_SHELL_USERNAME=.*/CLOUD_SHELL_USERNAME=${CLOUD_USER}" .env
-sed -i "s/CLOUD_SHELL_IP=.*/CLOUD_SHELL_IP=${CLOUD_IP}" .env
-sed -i "s/PAR_ISTP=.*/PAR_ISTP=${ISTP}" .env
-sed -i "s/PAR_HSTP=.*/PAR_HSTP=${HSTP}" .env
-
+sed -i "s/CLOUD_SHELL_USERNAME=.*/CLOUD_SHELL_USERNAME=$(echo ${CLOUD_USER} | sed 's/\//\\\//g')/" .env
+sed -i "s/CLOUD_SHELL_IP=.*/CLOUD_SHELL_IP=$(echo ${CLOUD_IP} | sed 's/\//\\\//g')/" .env
+sed -i "s/PAR_ISTP=.*/PAR_ISTP=$(echo ${ISTP} | sed 's/\//\\\//g')/" .env
+sed -i "s/PAR_HSTP=.*/PAR_HSTP=$(echo ${HSTP} | sed 's/\//\\\//g')/" .env
 
 # sudoを実行してパスワードを入力
 sudo echo "start"
