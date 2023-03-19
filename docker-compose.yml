@@ -28,13 +28,13 @@ services:
       && echo "STEP,$PAR_STEP" >> /app/parameter.csv 
       && echo "HIST,$PAR_HIST" >> /app/parameter.csv
       && echo "ISTP,$PAR_ISTP" >> /app/parameter.csv
-      && echo "ISTP,$PAR_HSTP" >> /app/parameter.csv 
+      && echo "HSTP,$PAR_HSTP" >> /app/parameter.csv 
       && echo "PNTM,$PAR_PNTM" >> /app/parameter.csv 
       && echo "BEAM,$PAR_BEAM" >> /app/parameter.csv 
       && echo "PATH,$PAR_PATH" >> /app/parameter.csv 
       && cp -f "$INPFILE.inp" ./linect.inp 
       && echo "$FFILE" | ./egs5mpirun foreground $PAR_PATH $NUM_CPU
-      && tar zcvf share$PAR_ISTP-$PAR_HSTP.tar.gz ./share
+      && tar zcvf ./share/share$PAR_ISTP-$PAR_HSTP.tar.gz ./share
       && gcloud compute scp share.tar.gz $CLOUD_SHELL_USERNAME@$CLOUD_SHELL_IP:~'
     #圧縮と転送
     #&& /bin/bash'
