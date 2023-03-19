@@ -21,3 +21,10 @@ BEAM:	ビーム(0:Parallel, 1:Fan)
 2. `docker-compose build`でイメージをビルド
 3. `docker-compose up`でコンテナ起動
 4. `/share`配下に投影像データ(.csv)とシミュレーションデータ(.inp)が生成される
+
+
+## SSHで他のPCでEGSを実行
+1. ホスト（シミュレーション実行）側：WSL2上でSSHサーバを立ち上げる
+2. ホスト側：Windowsでset_port_forwarding_22.batを実行　→　WindowsとWSLのポートのトンネリング
+3. ホスト側：WSL2で、/home/<User>/ 直下でこのgitレポジトリをクローン
+4. クライアント側：Windowsでssh_remote_exec_para.ps1を編集し（ユーザ名やホストIP部分）、実行
