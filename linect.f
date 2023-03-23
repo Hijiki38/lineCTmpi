@@ -340,7 +340,7 @@
 !      medarr(8)='C                       '
 !      medarr(9)='NI                      '
 
-	if (phantom.eq.3) then
+	if (phantom.eq.3 .or. phantom.eq.4) then
         medarr(1)='CDTE                    '
         medarr(2)='AIR-AT-NTP              '
         medarr(3)='AL                      '
