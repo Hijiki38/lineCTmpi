@@ -1,5 +1,3 @@
 result/
-share/*.csv
-share/*.pic
 *.pic
 egs5job*
