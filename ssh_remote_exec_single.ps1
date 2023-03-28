@@ -6,6 +6,7 @@ param(
   [string]$istp,
   [string]$hstp,
   [string]$cpus,
+  [string]$pntm,
   [string]$LocalWorkingDir
 )
 
@@ -32,6 +33,8 @@ $content = foreach ($line in $content) {
 	  "PAR_HSTP=${hstp}"
     } elseif($line -match "NUM_CPU"){
 	  "NUM_CPU=${cpus}"
+    } elseif($line -match "PNTM"){
+	  "PAR_PNTM=${pntm}"
     } else {
         $line
     }
