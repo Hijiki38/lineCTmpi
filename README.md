@@ -21,3 +21,13 @@ BEAM:	ビーム(0:Parallel, 1:Fan)
 2. `docker-compose build`でイメージをビルド
 3. `docker-compose up`でコンテナ起動
 4. `/share`配下に投影像データ(.csv)とシミュレーションデータ(.inp)が生成される
+
+
+## GCP上での実行方法
+1. lineCTmpi_GCP.shをCloud Shellで実行
+2. VMインスタンスを一つ起動して以下のコマンドを実行
+
+```
+$ mkdir gdrive
+$ google-drive-ocamlfuse gdrive -serviceaccountpath linectmpi-fcfdc9557818.json
+```
