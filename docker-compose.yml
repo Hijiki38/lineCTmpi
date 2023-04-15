@@ -34,9 +34,4 @@ services:
       && echo "PATH,$PAR_PATH" >> /app/parameter.csv 
       && cp -f "$INPFILE.inp" ./linect.inp 
       && echo "$FFILE" | ./egs5mpirun foreground $PAR_PATH $NUM_CPU
-      && tar zcvf ./share/share$PAR_ISTP-$PAR_HSTP.tar.gz ./share
-      && gcloud compute scp share$PAR_ISTP-$PAR_HSTP.tar.gz $CLOUD_SHELL_USERNAME@$CLOUD_SHELL_IP:~'
-    #圧縮と転送
-    #&& /bin/bash'
-    #command: /bin/bash -c './startup.sh "$FFILE" "$INPFILE" "$PAR_SOD" "$PAR_SDD" "$PAR_PTCH" "$PAR_TTMS" "$PAR_STEP" "$PAR_HIST" "$PAR_ISTP" "$PAR_PNTM" "$PAR_BEAM"'
-
+      && touch /app/share/done'

@@ -29,3 +29,13 @@ BEAM:	ビーム(0:Parallel, 1:Fan)
 3. ホスト側：WSL2で、/home/(User名)/ 直下でこのgitレポジトリをクローン
 4. クライアント側：ssh_remote_exec_para.ps1を編集する（各ホストのユーザ名やホストIP、担当させる投影など）
 5. クライアント側：cmdでssh_remote_exec.batを実行。シミュレーションのパラメータは、投影フレーム数以外はクライアント側の.envと同じ。各ホストが担当する投影フレームはssh_remote_exec_para.ps1内の変数で決まる。結果は./result内に.tar.gzとして返ってくる。
+
+
+## GCP上での実行方法
+1. lineCTmpi_GCP.shをCloud Shellで実行
+2. VMインスタンスを一つ起動して以下のコマンドを実行
+
+```
+$ mkdir gdrive
+$ google-drive-ocamlfuse gdrive -serviceaccountpath linectmpi-fcfdc9557818.json
+```
