@@ -20,7 +20,8 @@ BEAM:	ビーム(0:Parallel, 1:Fan)
 1. 実験パラメータを.envファイルで調整
 2. `docker-compose build`でイメージをビルド
 3. `docker-compose up`でコンテナ起動
-4. `/share`配下に投影像データ(.csv)とシミュレーションデータ(.inp)が生成される
+4. `/share`配下に投影像データ(.csv)とシミュレーションデータ(.inp)が生成される  
+shareに書き込み権限がないとエラーになるので、その場合は`chmod 777 share`とする
 
 
 ## SSHで他のPCでEGSを実行
