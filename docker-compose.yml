@@ -23,7 +23,7 @@ services:
       && . ~/.bashrc       
       && echo "SOD,$PAR_SOD" > /app/parameter.csv 
       && echo "SDD,$PAR_SDD" >> /app/parameter.csv 
-      &&  echo "PTCH,$PAR_PTCH" >> /app/parameter.csv 
+      && echo "PTCH,$PAR_PTCH" >> /app/parameter.csv 
       && echo "TTMS,$PAR_TTMS" >> /app/parameter.csv 
       && echo "STEP,$PAR_STEP" >> /app/parameter.csv 
       && echo "HIST,$PAR_HIST" >> /app/parameter.csv
