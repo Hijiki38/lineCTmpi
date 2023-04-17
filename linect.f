@@ -926,6 +926,7 @@
         write(ifti,140,advance='no') nor+5
       else
         write(ifti,140) nor+2 !subtract sample zone
+      end if
       nor=nor+1
 
       if(phantom.eq.0) then
