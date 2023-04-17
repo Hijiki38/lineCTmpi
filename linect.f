@@ -316,8 +316,12 @@
 !     ---------------------------------
       write(6,*) "pegs5-call"
       flush(6)
-      !nmed=6
-      nmed=9
+
+      if(phantom.eq.9) then
+        nmed=9
+      else
+        nmed=7
+      end if
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -376,16 +380,29 @@
         end do
       end do
 
-      chard(1) = 0.01d0
-      chard(2) = 0.0005d0
-      chard(3) = 0.0005d0
-      chard(4) = 0.0005d0
-      chard(5) = 0.0005d0
-      chard(6) = 0.0005d0
-      chard(7) = 0.0005d0
-      chard(8) = 0.0005d0
-      chard(9) = 0.0005d0
-      !chard(10) = 0.1d0
+      if(phantom.eq.9) then
+        chard(1) = 0.01d0
+        chard(2) = 0.05d0
+        chard(3) = 0.05d0
+        chard(4) = 0.0005d0
+        chard(5) = 0.05d0
+        chard(6) = 0.05d0
+        chard(7) = 0.05d0
+        chard(8) = 0.05d0
+        chard(9) = 0.05d0
+        !chard(10) = 0.1d0
+      else
+        chard(1) = 0.01d0
+        chard(2) = 0.05d0
+        chard(3) = 0.05d0
+        chard(4) = 0.05d0
+        chard(5) = 0.05d0
+        chard(6) = 0.05d0
+        chard(7) = 0.05d0
+        !chard(8) = 0.05d0
+        !chard(9) = 0.05d0
+        !chard(10) = 0.1d0
+      endif
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
       flush(6)
