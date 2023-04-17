@@ -267,7 +267,7 @@
       npr=npr+1
       phantom = parameters(npr)
       npr=npr+1
-      if(phantom.lt.0 .or. phantom.gt.5) then
+      if(phantom.lt.0 .or. phantom.gt.10) then
         write(6,*) "phantom number you entered is not defined"
       end if
       beam = parameters(npr)
@@ -358,7 +358,7 @@
       !medarr(6)='H2O                     '
 
 
-      if (phantom.eq.5 .or. phantom.eq.8) then
+      if (phantom.eq.5 .or. phantom.eq.8 .or. phantom.eq.9) then
         medarr(1)='CDTE                    '
         medarr(2)='AIR-AT-NTP              '
         medarr(3)='AL                      '
@@ -846,6 +846,46 @@
         nos=nos+1
       end if
 
+      ! ---- "Four rods Phantom square2" ----
+      if(phantom.eq.9) then
+        ctgeom(1,cti)=-0.15e0 !ph1
+        ctgeom(2,cti)=0.35e0
+        ctgeom(3,cti)=-0.75e0
+        ctgeom(4,cti)=0.75e0
+        ctgeom(5,cti)=0.0e0
+        ctgeom(6,cti)=0.4e0
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=-0.25e0 !ph2
+        ctgeom(2,cti)=-0.20e0
+        ctgeom(3,cti)=-0.75e0
+        ctgeom(4,cti)=0.75e0
+        ctgeom(5,cti)=-0.4e0
+        ctgeom(6,cti)=0.4e0
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=-0.325e0 !ph3
+        ctgeom(2,cti)=-0.300e0
+        ctgeom(3,cti)=-0.75e0
+        ctgeom(4,cti)=0.75e0
+        ctgeom(5,cti)=-0.4e0
+        ctgeom(6,cti)=0.4e0
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+        cti=cti+1
+        nos=nos+1
+        ctgeom(1,cti)=-0.4125e0 !ph4
+        ctgeom(2,cti)=-0.4000e0
+        ctgeom(3,cti)=-0.75e0
+        ctgeom(4,cti)=0.75e0
+        ctgeom(5,cti)=-0.4e0
+        ctgeom(6,cti)=0.4e0
+          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+        cti=cti+1
+        nos=nos+1
+      end if
+
 !SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1
 
 
@@ -893,6 +933,15 @@
 
         write(ifti,130) nor,nor+1 !rod1  Z0515 +516
         nor=nor+1
+      else if(phantom.eq.9) then
+        write(ifti,130) nor,nor+1 !rod 1
+        nor=nor+1
+        write(ifti,130) nor,nor+1 !rod 2
+        nor=nor+1
+        write(ifti,130) nor,nor+1 !rod 3
+        nor=nor+1
+        write(ifti,130) nor,nor+1 !rod 4
+        nor=nor+1
       else
         write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
         write(ifti,140,advance='no') nor+2  !subtract rod 1
@@ -920,7 +969,15 @@
 !Definition of End Zone
 !-----------------------------------------------
 150   FORMAT('Z',I0.4,' +',I0' -',I0)
-      write(ifti,150) nor,nor+1,translation_times+2  !Z0519 +520 -514
+      if (phantom.eq.9) then
+        write(ifti,130,advance='no') nor,nor+1
+        write(ifti,140,advance='no') translation_times+2
+        write(ifti,140,advance='no') translation_times+3
+        write(ifti,140,advance='no') translation_times+4
+        write(ifti,140,advance='no') translation_times+5
+      else
+        write(ifti,150) nor,nor+1,translation_times+2  !Z0519 +520 -514
+      end if
       write(ifti,*) geomkind(15)
 
 !-----------------------------------------------
@@ -986,6 +1043,11 @@
         write(ifti,fmt='(a)',advance='no') " 3"
         write(ifti,fmt='(a)',advance='no') " 4"
         write(ifti,fmt='(a)',advance='no') " 5"
+      else if(phantom.eq.9) then
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 4"
+        write(ifti,fmt='(a)',advance='no') " 4"
       end if
 
 !SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
