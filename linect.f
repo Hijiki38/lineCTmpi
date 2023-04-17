@@ -317,7 +317,7 @@
       write(6,*) "pegs5-call"
       flush(6)
       !nmed=6
-      nmed=7
+      nmed=9
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -340,7 +340,7 @@
 !      medarr(8)='C                       '
 !      medarr(9)='NI                      '
 
-	if (phantom.eq.3 .or. phantom.eq.4) then
+	    if (phantom.eq.3 .or. phantom.eq.4) then
         medarr(1)='CDTE                    '
         medarr(2)='AIR-AT-NTP              '
         medarr(3)='AL                      '
@@ -348,7 +348,7 @@
         medarr(5)='TI                      '
         medarr(6)='C                       '
         medarr(7)='H2O                     '
-	end if
+	    end if
 
       !medarr(1)='CDTE                    '
       !medarr(2)='AIR-AT-NTP              '
@@ -379,12 +379,12 @@
       chard(1) = 0.01d0
       chard(2) = 0.05d0
       chard(3) = 0.05d0
-      chard(4) = 0.05d0
+      chard(4) = 0.0005d0
       chard(5) = 0.05d0
       chard(6) = 0.05d0
       chard(7) = 0.05d0
-      !chard(8) = 0.05d0
-      !chard(9) = 0.05d0
+      chard(8) = 0.05d0
+      chard(9) = 0.05d0
       !chard(10) = 0.1d0
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
@@ -919,7 +919,13 @@
       !end do
 
       write(ifti,140,advance='no') 1 !subtract detector zone
-      write(ifti,140) nor+2 !subtract sample zone
+      if(phantom.eq.9) then
+        write(ifti,140,advance='no') nor+2 !subtract sample zone
+        write(ifti,140,advance='no') nor+3
+        write(ifti,140,advance='no') nor+4
+        write(ifti,140,advance='no') nor+5
+      else
+        write(ifti,140) nor+2 !subtract sample zone
       nor=nor+1
 
       if(phantom.eq.0) then
@@ -969,15 +975,7 @@
 !Definition of End Zone
 !-----------------------------------------------
 150   FORMAT('Z',I0.4,' +',I0' -',I0)
-      if (phantom.eq.9) then
-        write(ifti,130,advance='no') nor,nor+1
-        write(ifti,140,advance='no') translation_times+2
-        write(ifti,140,advance='no') translation_times+3
-        write(ifti,140,advance='no') translation_times+4
-        write(ifti,140,advance='no') translation_times+5
-      else
-        write(ifti,150) nor,nor+1,translation_times+2  !Z0519 +520 -514
-      end if
+      write(ifti,150) nor,nor+1,translation_times+2  !Z0519 +520 -514
       write(ifti,*) geomkind(15)
 
 !-----------------------------------------------
