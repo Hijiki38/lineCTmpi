@@ -126,8 +126,8 @@
 	    write(rank_str, '(I6.6)') mpi_rank
 
       !open(6,FILE='egs5job.out',STATUS='unknown')
-      !open(40,FILE='source150kv.csv',STATUS='old')
-      open(40,FILE='source270kv_theta60_cu0.3mm.csv',STATUS='old')
+      open(40,FILE='source150kv.csv',STATUS='old')
+      !open(40,FILE='source270kv_theta60_cu0.3mm.csv',STATUS='old')
       open(50,FILE='parameter.csv',STATUS='old')
 
 
@@ -377,14 +377,14 @@
       end do
 
       chard(1) = 0.01d0
-      chard(2) = 0.05d0
-      chard(3) = 0.05d0
+      chard(2) = 0.0005d0
+      chard(3) = 0.0005d0
       chard(4) = 0.0005d0
-      chard(5) = 0.05d0
-      chard(6) = 0.05d0
-      chard(7) = 0.05d0
-      chard(8) = 0.05d0
-      chard(9) = 0.05d0
+      chard(5) = 0.0005d0
+      chard(6) = 0.0005d0
+      chard(7) = 0.0005d0
+      chard(8) = 0.0005d0
+      chard(9) = 0.0005d0
       !chard(10) = 0.1d0
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
@@ -923,7 +923,7 @@
         write(ifti,140,advance='no') nor+2 !subtract sample zone
         write(ifti,140,advance='no') nor+3
         write(ifti,140,advance='no') nor+4
-        write(ifti,140,advance='no') nor+5
+        write(ifti,140) nor+5
       else
         write(ifti,140) nor+2 !subtract sample zone
       end if
