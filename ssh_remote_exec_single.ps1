@@ -3,6 +3,12 @@ param(
   [string]$execID,
   [string]$User,
   [string]$TargetHost,
+  [string]$sod,
+  [string]$sdd,
+  [string]$ptch,
+  [string]$ttms,
+  [string]$step,
+  [string]$hist,
   [string]$istp,
   [string]$hstp,
   [string]$cpus,
@@ -11,7 +17,6 @@ param(
 )
 
 # ワーキングディレクトリ
-#$LocalWorkingDir = "C:/Users/takum/Dropbox/Aoki_Lab/simulation/egs/lineCTmpi2"
 $RemoteWorkingDir = "/home/${User}/lineCTmpi"
 # リモートファイルとローカル保存先のパス
 $RemoteResultFile = "$RemoteWorkingDir/share/share*.tar.gz"
@@ -27,7 +32,19 @@ $SKey = "C:/Users/takum/.ssh/egs5_rsa"
 Copy-Item -Path ${LocalWorkingDir}/.env -Destination ${LocalWorkingDir}/tmp${execID}.txt -Force
 $content = Get-Content -Path ${LocalWorkingDir}/tmp${execID}.txt
 $content = foreach ($line in $content) {
-    if ($line -match "ISTP") {
+    if($line -match "SOD"){
+	  "PAR_SOD=${sod}"
+    } elseif($line -match "SDD"){
+	  "PAR_SDD=${sdd}"
+    } elseif($line -match "PTCH"){
+	  "PAR_PTCH=${ptch}"
+    } elseif($line -match "TTMS"){
+	  "PAR_TTMS=${ttms}"
+    } elseif($line -match "STEP"){
+	  "PAR_STEP=${step}"
+    } elseif($line -match "HIST"){
+	  "PAR_HIST=${hist}"
+    } elseif($line -match "ISTP") {
         "PAR_ISTP=${istp}"
     } elseif($line -match "HSTP"){
 	  "PAR_HSTP=${hstp}"
