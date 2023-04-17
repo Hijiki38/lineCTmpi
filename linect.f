@@ -1287,7 +1287,8 @@
         if(beam.eq.1) then
           call randomset(rnnow)
 
-          theta_rnd=translation_pitch*translation_times/(2*ctdisd)
+          theta_rnd=translation_pitch*translation_times
+     *        /(2*(ctdiss + ctdisd))
           uin=sin(csrad+(2*rnnow-1)*atan(theta_rnd))
           vin=0
           win=cos(csrad+(2*rnnow-1)*atan(theta_rnd))
