@@ -10,23 +10,15 @@ all_files = glob.glob(F'{file_path}*.csv')
 
 #角度をキーとしたファイルリストの辞書、および角度リストを作成
 all_files_dict = defaultdict(list)
-deg_list = []
+
 for file in all_files:
     
     #ファイル名から角度を取得、辞書にファイル追加
     deg = file.rsplit('.', 2)[0]
     all_files_dict[deg].append(file)
 
-    #角度リストの作成
-    if deg not in deg_list:
-        deg_list.append(deg)
-
-
 #各角度につきファイルを結合
-for i in deg_list:
-
-    #辞書から同角度のファイルリストを取得
-    same_deg_files = all_files_dict[i]
+for deg, same_deg_files in all_files_dict.items():
 
     #もし要素がなければ次の角度へ
     if len(same_deg_files) == 0:
@@ -57,7 +49,7 @@ for i in deg_list:
             result = np.add(result, data)
     
     #データ結合されたファイルを作成
-    with open(F'{i}.csv', 'w', newline='') as f:
+    with open(F'{deg}.csv', 'w', newline='') as f:
         writer = csv.writer(f)
         for row in result:
             writer.writerow(row)
