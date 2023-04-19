@@ -1,3 +1,4 @@
 result/
 *.pic
 egs5job*
+.vs*
