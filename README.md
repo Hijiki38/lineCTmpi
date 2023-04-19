@@ -33,10 +33,6 @@ shareに書き込み権限がないとエラーになるので、その場合は
 
 
 ## GCP上での実行方法
-1. lineCTmpi_GCP.shをCloud Shellで実行
-2. VMインスタンスを一つ起動して以下のコマンドを実行
-
-```
-$ mkdir gdrive
-$ google-drive-ocamlfuse gdrive -serviceaccountpath linectmpi-fcfdc9557818.json
-```
+1. ./gcp/cloud_shell.shの先頭にあるパラメータを書き換える
+2. ./gcp/cloud_shell.shをCloud Shellで実行
+3. [G:\共有ドライブ\XCT\lineCTmpi](https://drive.google.com/drive/u/0/folders/1pQ5akiTWsCuqtgw3ZbTBQFIR_xmvvp1L)に実行結果のcsvファイルがアップロードされる
