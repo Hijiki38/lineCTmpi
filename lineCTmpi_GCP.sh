@@ -59,11 +59,11 @@ while [ -n "$INSTANCE_LIST" ]; do
   # 各インスタンスの処理が完了しているか
   for INSTANCE in $INSTANCE_LIST; do
     if gcloud compute ssh $INSTANCE --zone=$ZONE --command='test -e /home/zodiac/lineCTmpi/share/done'; then
-      # 処理が完了している場合は計算結果をGoogleDriveにコピーしインスタンスを削除
+      # 計算結果を角度ごとに結合し、GoogleDriveにアップロード
       gcloud compute ssh $INSTANCE --zone=$ZONE --command='cd /home/zodiac; \
-      google-drive-ocamlfuse gdrive -serviceaccountpath linectmpi-fcfdc9557818.json; \
-      cp -f lineCTmpi/share/*.csv gdrive'
-      
+      python3 /home/zodiac/lineCTmpi/gcp/mergecsv.py; \
+      python3 /home/zodiac/lineCTmpi/gcp/upload.py
+      # インスタンスを削除
       gcloud compute instance-groups managed delete-instances $INSTANCE_GROUP_NAME --zone=$ZONE --instances=$INSTANCE
       INSTANCE_LIST=$(echo "$INSTANCE_LIST" | grep -v $INSTANCE)
     fi
