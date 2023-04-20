@@ -12,6 +12,7 @@ PAR_TTMS:	ピクセル数
 PAR_STEP:	投影数  
 PAR_HIST:	光子数  
 PAR_ISTP:	開始投影数（途中から投影をしたい場合）  
+PAR_HSTP:	終了投影数（途中から投影をしたい場合）  
 PAR_PNTM:	ファントム(0:Onion, 1:Tissue, 2:Metal)  
 PAR_BEAM:	ビーム(0:Parallel, 1:Fan)  
 PAR_PATH:	出力フォルダ（デフォルトはshare）
@@ -32,7 +33,21 @@ shareに書き込み権限がないとエラーになるので、その場合は
 5. クライアント側：cmdでssh_remote_exec.batを実行。シミュレーションのパラメータは、投影フレーム数以外はクライアント側の.envと同じ。各ホストが担当する投影フレームはssh_remote_exec_para.ps1内の変数で決まる。結果は./result内に.tar.gzとして返ってくる。
 
 
-## GCP上での実行方法
+## GCP上での高性能VM単独実行方法
+1. VMインスタンスから`linectmpi-max`を起動(CPU物理コア数88)
+2. Dockerコンテナでのシミュレーション実行方法と同じ方法で実行
+
+
+## GCP上での並列実行方法
 1. ./gcp/cloud_shell.shの先頭にあるパラメータを書き換える
 2. ./gcp/cloud_shell.shをCloud Shellで実行
 3. [G:\共有ドライブ\XCT\lineCTmpi](https://drive.google.com/drive/u/0/folders/1pQ5akiTWsCuqtgw3ZbTBQFIR_xmvvp1L)に実行結果のcsvファイルがアップロードされる
+
+
+## CGP上での処理がエラーになったり、cloud shellが止まってしまう時
+- 他のユーザが作成したインスタンスを別のユーザで実行すると、ライブラリ不足やパーミッション不足でエラーになることがある
+- その場合は、以下の対応を行う必要がある
+1. VMインスタンスを単独起動
+2. `docker-compose up`でエラーになる個所を探す(shareへの書き込み権限不足など)
+3. gcpフォルダにある二つの.pyを実行して、エラーになる個所を探す(.pyファイルの実行権限不足や、ライブラリの不足など)
+4. 単体で実行ができたら、growiのInstanceGroupのページに従い、ディスクイメージ、インスタンステンプレート、インスタンスグループを作成する
