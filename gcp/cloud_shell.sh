@@ -88,7 +88,7 @@ while [ -n "$INSTANCE_LIST" ]; do
       # 計算結果を角度ごとに結合し、GoogleDriveにアップロード
       gcloud compute ssh $INSTANCE --zone=$ZONE --command='cd /home/zodiac/lineCTmpi/gcp; \
       python3 ./mergecsv.py; \
-      python3 ./upload.py
+      python3 ./upload.py'
       # インスタンスを削除
       gcloud compute instance-groups managed delete-instances $INSTANCE_GROUP_NAME --zone=$ZONE --instances=$INSTANCE
       INSTANCE_LIST=$(echo "$INSTANCE_LIST" | grep -v $INSTANCE)
