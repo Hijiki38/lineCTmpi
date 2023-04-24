@@ -1,14 +1,16 @@
+import sys
+sys.path.append('/home/zodiac/lib/python3.10/site-packages')
 import glob
 import csv
 import os
 import numpy as np
 from collections import defaultdict
 
-file_path = '/home/zodiac/lineCTmpi/share/'
+args = sys.argv   
+file_path = args[1] #スキャンファイルのパス("/"まで)
 all_files = glob.glob(F'{file_path}*.csv')
 
-
-#角度をキーとしたファイルリストの辞書、および角度リストを作成
+#角度をキーとしたファイルリストの辞書を作成
 all_files_dict = defaultdict(list)
 
 for file in all_files:

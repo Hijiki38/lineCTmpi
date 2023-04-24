@@ -1,11 +1,14 @@
 from __future__ import print_function
+import os
+import glob
+import sys
+sys.path.append('/home/zodiac/lib/python3.10/site-packages')
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
-import glob
-import os
 
-file_path = "/home/zodiac/lineCTmpi/share/"
+args = sys.argv     #引数を指定
+file_path = args[1] #入力ファイルのパス("/"まで)
 all_files = glob.glob(F'{file_path}*.csv')
 keyfile_path = '/home/zodiac/linectmpi-fcfdc9557818.json'
 share_drive_id = '1pQ5akiTWsCuqtgw3ZbTBQFIR_xmvvp1L'
