@@ -1,51 +1,64 @@
 import subprocess
-import time
+import asyncio
 
 # GCP用パラメータ
-ZONE = 'us-central1-b'	# インスタンスグループを作成したZONE
-INSTANCE_GROUP_NAME = 'linectmpi-5'	# インスタンスグループ名
-NUM_INSTANCE = 3	# 同時実行するインスタンス数
-POLING_TIMER = 10	# 処理待ち時の待機時間(sec)
+zone = 'us-central1-b'	# インスタンスグループを作成したZONE
+instance_group_name = 'linectmpi-5'	# インスタンスグループ名
+num_instance = 3	# 同時実行するインスタンス数
+poling_timer = 10	# 処理待ち時の待機時間(sec)
 
 # 計算用パラメータ
-PAR_SOD = 11.6	# 線源ー被写体間距離(cm)
-PAR_SDD = 50	# 線源ー検出器間距離(cm)
-PAR_PTCH = 0.01	# ピクセルの大きさ(cm)
-PAR_TTMS = 1024	# ピクセル数
-PAR_STEP = 1440	# 投影数
-PAR_HIST = 1000	# 光子数
-PAR_ISTP = 500	# 開始投影数（途中から投影をしたい場合）
-PAR_XSTP = 4	# 1インスタンス当たりの投影枚数 
-PAR_PNTM = 3	# ファントム(0:Onion, 1:Tissue, 2:Metal)
-PAR_BEAM = 1	# ビーム(0:Parallel, 1:Fan)
+par_sod = 11.6	# 線源ー被写体間距離(cm)
+par_sdd = 50	# 線源ー検出器間距離(cm)
+par_ptch = 0.01	# ピクセルの大きさ(cm)
+par_ttms = 1024	# ピクセル数
+par_step = 1440	# 投影数
+par_hist = 1000	# 光子数
+par_istp = 500	# 開始投影数（途中から投影をしたい場合）
+par_xstp = 4	# 1インスタンス当たりの投影枚数 
+par_pntm = 3	# ファントム(0:Onion, 1:Tissue, 2:Metal)
+par_beam = 1	# ビーム(0:Parallel, 1:Fan)
 
 # ファイル操作用パラメータ
-FILE_PATH = '/home/zodiac/lineCTmpi/share/'
-
+file_path = '/home/zodiac/lineCTmpi/share/'
 
 
 class Process:
+    
+    def make_instances(self):
+        make_instance_cmd = f'gcloud compute instance-groups managed resize {instance_group_name} --zone={zone} --size={num_instance}'
+        return subprocess.run(make_instance_cmd, shell=True).returncode    
 
-    def make_instance_list(self):
-        SSH_CMD = f'gcloud compute instance-groups managed resize {INSTANCE_GROUP_NAME} --zone={ZONE} --size={NUM_INSTANCE}'
-        return subprocess.run(SSH_CMD, shell=True).returncode    
+    def get_instance_list(self):
+        get_instance_cmd = f"gcloud compute instance-groups managed list-instances {instance_group_name} --zone={zone} --format='value(instance)'"
+        output = subprocess.check_output(get_instance_cmd, shell=True)
+        return output.decode().strip().split()
 
-    def calculation(self):
-        SSH_CMD = f"""gcloud compute ssh {INSTANCE} --zone={ZONE} --command='cd /home/zodiac/lineCTmpi;
-        CLOUD_INSTANCE="{INSTANCE}";
+
+class Instance:
+
+    def __init__(self,instance):
+        self.instance = instance
+        self.ready_count = ready_count
+        self.par_istp = par_istp
+        self.par_xstp = par_xstp
+
+    async def __calculation(self):
+        calc_cmd = f"""gcloud compute ssh {self.instance} --zone={zone} --command='cd /home/zodiac/lineCTmpi;
+        CLOUD_instance="{self.instance}";
         CLOUD_USER=$(gcloud config get-value account);
         CLOUD_IP=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip);
         N_CORE=$(grep -m 1 "cpu cores" /proc/cpuinfo | sed "s/^.*: //");
-        SOD="{PAR_SOD}";
-        SDD="{PAR_SDD}";
-        PTCH="{PAR_PTCH}";
-        TTMS="{PAR_TTMS}";
-        STEP="{PAR_STEP}";
-        HIST="{PAR_HIST}";
-        ISTP="{PAR_ISTP}";
-        HSTP="{PAR_ISTP + PAR_XSTP}";
-        PNTM="{PAR_PNTM}";
-        BEAM="{PAR_BEAM}";
+        SOD="{par_sod}";
+        SDD="{par_sdd}";
+        PTCH="{par_ptch}";
+        TTMS="{par_ttms}";
+        STEP="{par_step}";
+        HIST="{par_hist}";
+        ISTP="{self.par_istp}";
+        HSTP="{self.par_istp + self.par_xstp}";
+        PNTM="{par_pntm}";
+        BEAM="{par_beam}";
         sed -i "s/CLOUD_SHELL_INSTANCE_NAME=.*/CLOUD_SHELL_INSTANCE_NAME=${{CLOUD_INSTANCE}}/" .env;
         sed -i "s/CLOUD_SHELL_USERNAME=.*/CLOUD_SHELL_USERNAME=${{CLOUD_USER}}/" .env;
         sed -i "s/CLOUD_SHELL_IP=.*/CLOUD_SHELL_IP=${{CLOUD_IP}}/" .env;
@@ -61,68 +74,65 @@ class Process:
         sed -i "s/PAR_PNTM=.*/PAR_PNTM=${{PNTM}}/" .env;
         sed -i "s/PAR_BEAM=.*/PAR_BEAM=${{BEAM}}/" .env;
         nohup docker-compose up > /dev/null 2>&1 &'"""
-        return subprocess.run(SSH_CMD, shell=True).returncode
-
-    def get_instance_list(self):
-        SSH_CMD = f"gcloud compute instance-groups managed list-instances {INSTANCE_GROUP_NAME} --zone={ZONE} --format='value(instance)'"
-        OUTPUT = subprocess.check_output(SSH_CMD, shell=True)
-        return OUTPUT.decode().strip().split()
-
-    def merge_and_upload(self):
-        SSH_CMD =  f"""gcloud compute ssh {INSTANCE} --zone={ZONE} --command='cd /home/zodiac/lineCTmpi/gcp;
-        python3 mergecsv.py {FILE_PATH};
-        python3 upload.py {FILE_PATH}'"""
-        return subprocess.run(SSH_CMD, shell=True).returncode
-
-    def delete_instance(self):
-        SSH_CMD = f"gcloud compute instance-groups managed delete-instances {INSTANCE_GROUP_NAME} --zone={ZONE} --instances={INSTANCE}"
-        return subprocess.run(SSH_CMD, shell=True).returncode
+        return subprocess.run(calc_cmd, shell=True).returncode
     
-    def judge_calc_complete(self):
-        SSH_CMD = f"gcloud compute ssh {INSTANCE} --zone={ZONE} --command='test -e /home/zodiac/lineCTmpi/share/done'"
-        return subprocess.run(SSH_CMD, shell=True).returncode
+    async def __judge_calc_complete(self):
+        judge_complete_cmd = f"gcloud compute ssh {self.instance} --zone={zone} --command='test -e /home/zodiac/lineCTmpi/share/done'"
+        return subprocess.run(judge_complete_cmd, shell=True).returncode
+
+    def __merge_and_upload(self):
+        merge_upload_cmd =  f"""gcloud compute ssh {self.instance} --zone={zone} --command='cd /home/zodiac/lineCTmpi/gcp;
+        python3 mergecsv.py {file_path};
+        python3 upload.py {file_path}'"""
+        return subprocess.run(merge_upload_cmd, shell=True).returncode
+
+    def __delete_instance(self):
+        delete_instance_cmd = f"gcloud compute instance-groups managed delete-instances {instance_group_name} --zone={zone} --instances={self.instance}"
+        return subprocess.run(delete_instance_cmd, shell=True).returncode
+    
+    async def run(self):
+        calc_result = -1
+        judge_complete_result = -1
+        loop = asyncio.get_running_loop()
+
+        while calc_result != 0:
+            await asyncio.sleep(poling_timer)
+            calc_result = await loop.create_task(self.__calculation())
+
+            if calc_result == 0:
+                print(f"{self.ready_count}/{num_instance} Instance {self.instance} ready.")
+            else:
+                print(f"Instance {self.instance} not ready. Skipping...")
+
+        while judge_complete_result != 0:
+            await asyncio.sleep(poling_timer)
+            judge_complete_result = await loop.create_task(self.__judge_calc_complete())
+
+            if judge_complete_result == 0:            
+                self.__merge_and_upload()
+                self.__delete_instance()
 
 
-
-# インスタンスを作成
-process = Process()
-MAKE_INSTANCE_RESULT = process.make_instance_list() 
-INSTANCE_LIST = process.get_instance_list()
-
-# 全インスタンスで計算
-READY_COUNT = 0
-while INSTANCE_LIST:
-    time.sleep(POLING_TIMER)
-
-    for INSTANCE in INSTANCE_LIST:
-        CALC_RESULT = process.calculation()
-
-        # インスタンスの準備が整っていなかったら、ssh接続に失敗するので、リトライする
-        if CALC_RESULT != 0:
-            print(f"Instance {INSTANCE} not ready. Skipping...")
-            continue
-
-        # カウンタ更新
-        PAR_ISTP += PAR_XSTP
-        READY_COUNT += 1
-        print(f"{READY_COUNT}/{NUM_INSTANCE} Instance {INSTANCE} ready.")
-        INSTANCE_LIST.remove(INSTANCE)
+async def main():
+    global par_istp
+    global ready_count
+    # インスタンスを作成
+    process = Process()
+    process.make_instances() 
+    instance_list = process.get_instance_list()
 
 
-# インスタンスが存在する間はポーリング
-INSTANCE_LIST = process.get_instance_list()
-while INSTANCE_LIST:
-    time.sleep(POLING_TIMER)
+    # 全インスタンスをクラスにしてリストに格納
+    processing_instances = []
+    tasks = []
+    for i, instance in enumerate(instance_list):
 
-    # 各インスタンスの処理が完了しているか
-    for INSTANCE in INSTANCE_LIST:
-        SSH_RESULT = process.judge_calc_complete()
+        ready_count = i + 1
+        processing_instances.append(Instance(instance))
+        tasks.append(asyncio.create_task(processing_instances[i].run()))
+        par_istp += par_xstp
+        
+    await asyncio.gather(*tasks)
 
-        if SSH_RESULT == 0:
-
-            # 計算結果を角度ごとに結合し、GoogleDriveにアップロード
-            SSH_RESULT = process.merge_and_upload()
-
-            # インスタンスを削除
-            process.delete_instance()
-            INSTANCE_LIST.remove(INSTANCE)
+if __name__ == "__main__":
+    asyncio.run(main())
