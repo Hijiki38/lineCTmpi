@@ -9,3 +9,4 @@
 * [リモートPC上で実行](/remote/README.md)
 * [GCP上で単独実行](/gcp_VM/README.md)
 * [GCP上で並列実行](/gcp_client/README.md)
+* [シミュレーション結果からサイノグラム作成](/sino/README.md)
