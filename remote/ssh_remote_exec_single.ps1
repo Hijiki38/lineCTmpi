@@ -23,13 +23,13 @@ $RemoteResultFile = "$RemoteWorkingDir/share/share*.tar.gz"
 $LocalDestination = "$LocalWorkingDir/result"
 
 # リモートサーバーで実行するコマンド
-$Command = "cd ${RemoteWorkingdir} && docker-compose up"
+$Command = "cd ${RemoteWorkingdir}/core && docker-compose up"
 
 # 秘密鍵のパス
 $SKey = "C:/Users/takum/.ssh/egs5_rsa"
 
 # リモートに.envとして送るためのファイルtmp.txtを作成
-Copy-Item -Path ${LocalWorkingDir}/.env -Destination ${LocalWorkingDir}/tmp${execID}.txt -Force
+Copy-Item -Path ${LocalWorkingDir}/../core/.env -Destination ${LocalWorkingDir}/tmp${execID}.txt -Force
 $content = Get-Content -Path ${LocalWorkingDir}/tmp${execID}.txt
 $content = foreach ($line in $content) {
     if($line -match "SOD"){
