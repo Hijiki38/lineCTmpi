@@ -3,7 +3,7 @@ import asyncio
 
 # GCP用パラメータ
 zone = 'us-central1-b'	# インスタンスグループを作成したZONE
-instance_group_name = 'linectmpi-5'	# インスタンスグループ名
+instance_group_name = 'linectmpi'	# インスタンスグループ名
 num_instance = 3	# 同時実行するインスタンス数
 poling_timer = 10	# 処理待ち時の待機時間(sec)
 
@@ -20,8 +20,9 @@ par_pntm = 3	# ファントム(0:Onion, 1:Tissue, 2:Metal)
 par_beam = 1	# ビーム(0:Parallel, 1:Fan)
 
 # ファイル操作用パラメータ
-file_path = '/home/zodiac/lineCTmpi/share/'
-
+calc_dir_path = '/home/zdc/lineCTmpi/core/'
+share_dir_path = '/home/zdc/lineCTmpi/core/share/'
+gdrive_dir_path = '/home/zdc/lineCTmpi/gcp_VM/'
 
 class Process:
     
@@ -44,7 +45,7 @@ class Instance:
         self.par_xstp = par_xstp
 
     async def __calculation(self):
-        calc_cmd = f"""gcloud compute ssh {self.instance} --zone={zone} --command='cd /home/zodiac/lineCTmpi;
+        calc_cmd = f"""gcloud compute ssh {self.instance} --zone={zone} --command='cd {calc_dir_path};
         CLOUD_instance="{self.instance}";
         CLOUD_USER=$(gcloud config get-value account);
         CLOUD_IP=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip);
@@ -77,13 +78,13 @@ class Instance:
         return subprocess.run(calc_cmd, shell=True).returncode
     
     async def __judge_calc_complete(self):
-        judge_complete_cmd = f"gcloud compute ssh {self.instance} --zone={zone} --command='test -e /home/zodiac/lineCTmpi/share/done'"
+        judge_complete_cmd = f"gcloud compute ssh {self.instance} --zone={zone} --command='test -e {share_dir_path}done'"
         return subprocess.run(judge_complete_cmd, shell=True).returncode
 
     def __merge_and_upload(self):
-        merge_upload_cmd =  f"""gcloud compute ssh {self.instance} --zone={zone} --command='cd /home/zodiac/lineCTmpi/gcp;
-        python3 mergecsv.py {file_path};
-        python3 upload.py {file_path}'"""
+        merge_upload_cmd =  f"""gcloud compute ssh {self.instance} --zone={zone} --command='cd {gdrive_dir_path};
+        python3 mergecsv.py {share_dir_path};
+        python3 upload.py {share_dir_path}'"""
         return subprocess.run(merge_upload_cmd, shell=True).returncode
 
     def __delete_instance(self):

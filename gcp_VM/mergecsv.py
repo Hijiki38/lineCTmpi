@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/home/zodiac/lib/python3.10/site-packages')
+sys.path.append('/home/zdc/lib')
 import glob
 import csv
 import os
