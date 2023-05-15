@@ -45,7 +45,7 @@ class Instance:
         self.par_xstp = par_xstp
 
     async def __calculation(self):
-        calc_cmd = f"""gcloud compute ssh {self.instance} --zone={zone} --command='cd {calc_dir_path};
+        calc_cmd = f"""gcloud compute ssh zdc@{self.instance} --zone={zone} --command='cd {calc_dir_path};
         CLOUD_instance="{self.instance}";
         CLOUD_USER=$(gcloud config get-value account);
         CLOUD_IP=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip);
@@ -78,11 +78,11 @@ class Instance:
         return subprocess.run(calc_cmd, shell=True).returncode
     
     async def __judge_calc_complete(self):
-        judge_complete_cmd = f"gcloud compute ssh {self.instance} --zone={zone} --command='test -e {share_dir_path}done'"
+        judge_complete_cmd = f"gcloud compute ssh zdc@{self.instance} --zone={zone} --command='test -e {share_dir_path}done'"
         return subprocess.run(judge_complete_cmd, shell=True).returncode
 
     def __merge_and_upload(self):
-        merge_upload_cmd =  f"""gcloud compute ssh {self.instance} --zone={zone} --command='cd {gdrive_dir_path};
+        merge_upload_cmd =  f"""gcloud compute ssh zdc@{self.instance} --zone={zone} --command='cd {gdrive_dir_path};
         python3 mergecsv.py {share_dir_path};
         python3 upload.py {share_dir_path}'"""
         return subprocess.run(merge_upload_cmd, shell=True).returncode
