@@ -4,13 +4,16 @@
 1. [GCP上でVMインスタンスの環境構築](../gcp_VM/README.md)を実行
 
 ## ローカルUbuntu上でGCPアクセス用のDocker環境構築(初回のみ)
-1. `gcp_client`に移動して、jsonファイルをコピーして、git cloneして、docker build
+1. [Ubuntu 22.04 LTSへの最新版Dockerのインストール](https://self-development.info/ubuntu-22-04-lts%E3%81%B8%E3%81%AE%E6%9C%80%E6%96%B0%E7%89%88docker%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB/)に従ってDockerをインストール
+2. `gcp_client`に移動して、フォルダ内にあるDockerfileを用いてイメージを作成
+
+に移動して、jsonファイルをコピーして、git cloneして、docker build
 2. ...
 
 ## GCP上での並列実行
 1. `gcp_client`に移動して、`docker run -it cloud_shell`
 2. `cloud_shell.py`の先頭にあるパラメータを書き換える
-2. `phtyon3 cloud_shell.py`
+2. `python3 cloud_shell.py`
 3. [G:\共有ドライブ\XCT\lineCTmpi](https://drive.google.com/drive/u/0/folders/1pQ5akiTWsCuqtgw3ZbTBQFIR_xmvvp1L)に実行結果のcsvファイルがアップロードされる
 
 ## CGP上での処理がエラーになったり、cloud shellが止まってしまう時
