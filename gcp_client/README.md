@@ -7,8 +7,6 @@
 1. [Ubuntu 22.04 LTSへの最新版Dockerのインストール](https://self-development.info/ubuntu-22-04-lts%E3%81%B8%E3%81%AE%E6%9C%80%E6%96%B0%E7%89%88docker%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB/)に従ってDockerをインストール
 2. `gcp_client`に移動して、フォルダ内にあるDockerfileを用いてイメージを作成
 
-に移動して、jsonファイルをコピーして、git cloneして、docker build
-2. ...
 
 ## GCP上での並列実行
 1. `gcp_client`に移動して、`docker run -it cloud_shell`

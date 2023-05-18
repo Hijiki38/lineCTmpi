@@ -8,8 +8,8 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from google.oauth2 import service_account
 
-args = sys.argv     #引数を指定
-file_path = args[1] #入力ファイルのパス("/"まで)
+args = sys.argv      #引数を指定
+file_path = args[1]  #入力ファイルのパス("/"まで)
 all_files = glob.glob(F'{file_path}*.csv')
 keyfile_path = '/home/zdc/lineCTmpi/linectmpi-fcfdc9557818.json'
 share_drive_id = '1pQ5akiTWsCuqtgw3ZbTBQFIR_xmvvp1L'

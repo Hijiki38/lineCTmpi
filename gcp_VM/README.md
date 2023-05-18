@@ -2,8 +2,8 @@
 ## GCP上でVMインスタンスの環境構築(初回のみ)
 ### 1. VMインスタンスの作成
 
-
-        リージョン：アイオワ
+        名前：<INSTANCE_NAME>   # 任意
+        リージョン：us-central(アイオワ)
         ゾーン：us-central-b    #"a"だと稀にサーバー落ちしている
         マシンの構成：任意       #インスタンステンプレートを作成する際に変更可能
         ブートディスク：OS Ubuntu, バージョン 22.04LTS
@@ -12,35 +12,55 @@
 ### 2. 環境構築
 1. 共有ユーザ追加
 
-        $ sudo adduser <USER_NAME>
+        $ sudo adduser <USER_NAME>　
+        # USER_NAMEは "gcp_client/cloud_shell.py" の変数 user_name と一致させる必要がある
+        　初期は"zdc"としている
 
-    以降は共有ユーザでログインして作業する。このユーザでログインするため、ローカル環境からgcloudコマンドを利用してssh接続し、その際にユーザ名を指定する（GCPweb上でユーザ名を指定してログインできれば楽だが方法が見つからなかった）
 
-        $ gcloud compute ssh <USER_NAME>@<INSTANCE_NAME>
+    ※以降は共有ユーザでログインして作業する。
+    共有ユーザでログインするために、ローカル環境からユーザ名を指定してssh接続する<br>
+    （GCPweb上でユーザ名を指定できればその方が楽だが、方法が見つからなかった）
 
-    　※事前にgcloudコマンドを叩くための環境構築必須。　[Google Cloud
-：gcloud CLI をインストールする](https://cloud.google.com/sdk/docs/install?hl=ja#linux)
+
+        $ gcloud compute ssh <USER_NAME>@<INSTANCE_NAME>  #事前にgcloud CLIのインストールが必要
+　
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        [Google Cloud：gcloud CLI をインストールする](https://cloud.google.com/sdk/docs/install?hl=ja#linux)
 
 2. git clone
 
         $ sudo apt install -y git
         $ git clone <repository_URL>        
-        $ cd <clone_repository>
-        $ chmod 777 <clone_repository>      #全ユーザに読み書き権限の付与
-        $ git checkout <commit_ID>          #任意のコミットに移動したい場合
+        $ cd <repository_NAME>
+        $ chmod 777 <repository_NAME>      # 全ユーザに読み書き権限の付与
+        $ git checkout <commit_ID>         # 任意のコミットに移動したい場合
 
-3. pythonパッケージのインストール（必要な場合）
+3. pythonパッケージのインストール
         
         $ sudo apt update
         $ sudo apt install python3-pip
-        $ pip install <package_NAME>
+        $ pip install numpy
         $ pip install google-api-python-client google-auth  #Google Driveへのファイルアップロードに必要
 
-    サービスアカウントを利用してGoogle Driveにファイルをアップロードする場合、ローカルから以下のコマンドを叩いてキーをアップロードしておく
+4. Google Drive API およびサービスアカウントの設定
 
-        $ gcloud compute scp <service_account_key> <USER_NAME>@<INSTANCE_NAME>:/path/to/<clone_repository>
+    インスタンスからGoogle Driveにファイルをアップロードするために [Google Drive API](https://developers.google.com/drive/api/guides/manage-uploads?hl=ja)を使用する
 
-4. dockerのインストールとビルド
+
+        APIとサービス > ライブラリ > "Google Drive API" を検索しインストール
+        IAMと管理 > サービスアカウント > サービスアカウントの作成
+        作成したアカウントを選択　キー > 鍵を追加 > 新しい鍵を作成 > JSON
+        サービスアカウントにアップロード先のフォルダへのアクセス権を付与しておく
+
+    ローカル環境から以下のコマンドを実行して、インスタンスにサービスアカウントキーをアップロードする
+  
+
+        $ gcloud compute scp <service_account_key> <USER_NAME>@<INSTANCE_NAME>:/path/to/<repository_NAME>
+        # "upload.py" の変数 keyfile_path とアップロード後のパスを一致させる必要がある
+          初期は'/home/zdc/lineCTmpi/<service_account_key>'としている
+        
+
+5. dockerのインストールとビルド
 
     [Ubuntu 22.04 LTSへの最新版Dockerのインストール](https://self-development.info/ubuntu-22-04-lts%E3%81%B8%E3%81%AE%E6%9C%80%E6%96%B0%E7%89%88docker%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB/)に従ってDockerをインストールする
 
@@ -67,7 +87,8 @@
         インスタンスグループ > インスタンスグループ > インスタンスグループを作成
         インスタンステンプレート：＜作成したテンプレート＞
         ロケーション：シングルゾーン, リージョン us-central1（アイオワ）, ゾーン us-central1-b
-        自動スケーリング：オフ, インスタンスの最小数0, 最大数1000
+        自動スケーリング：自動スケーリングの構成を削除> ページ上部にインスタンス数を指定する欄が増えているため 0 にしておく
+        詳細設定を表示 > マネージドインスタンスリストAPI呼び出しの結果：ページ分割あり（大規模なグループに推奨）
 
 ## GCP上での高性能VM単独実行方法
 1. ディスクイメージからCPUコアの多いVMインスタンスを作る（c3-hicpu-176等）
