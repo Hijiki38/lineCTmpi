@@ -3,8 +3,8 @@
 ### 1. VMインスタンスの作成
 
         名前：<INSTANCE_NAME>   # 任意
-        リージョン：us-central(アイオワ)
-        ゾーン：us-central-b    #"a"だと稀にサーバー落ちしている
+        リージョン：us-central1(アイオワ)
+        ゾーン：us-central1-b    # "gcp_client/parameter.py" の変数 "zone"と一致させる
         マシンの構成：任意       #インスタンステンプレートを作成する際に変更可能
         ブートディスク：OS Ubuntu, バージョン 22.04LTS
         ファイアウォール：HTTP,HTTPSトラフィックを両方許可
@@ -13,16 +13,15 @@
 1. 共有ユーザ追加
 
         $ sudo adduser <USER_NAME>　
-        # USER_NAMEは "gcp_client/cloud_shell.py" の変数 user_name と一致させる必要がある
+        # USER_NAMEは "gcp_client/parameter.py" の変数 "user_name" と一致させる
         　初期は"zdc"としている
-
 
     ※以降は共有ユーザでログインして作業する。
     共有ユーザでログインするために、ローカル環境からユーザ名を指定してssh接続する<br>
     （GCPweb上でユーザ名を指定できればその方が楽だが、方法が見つからなかった）
 
-
-        $ gcloud compute ssh <USER_NAME>@<INSTANCE_NAME>  #事前にgcloud CLIのインストールが必要
+        $ gcloud compute ssh <USER_NAME>@<INSTANCE_NAME>  
+        #事前にgcloud CLIのインストールが必要
 　
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         [Google Cloud：gcloud CLI をインストールする](https://cloud.google.com/sdk/docs/install?hl=ja#linux)
@@ -52,14 +51,16 @@
                 作成したアカウントを選択　キー > 鍵を追加 > 新しい鍵を作成 > JSON
                 権限 > 作成したアカウント > オーナー     #必要な権限が分かればそれのみで良い
         サービスアカウントにアップロード先のフォルダへのアクセス権を付与しておく
+        アップロード先のフォルダIDを、"gcp_client/parameter.py" の変数 "share_drive_id" と一致させる
 
 
+    [GoogleドライブのフォルダIDの取得方法](https://tetsuooo.net/gas/748/)<br>
+    
     ローカル環境から以下のコマンドを実行して、インスタンスにサービスアカウントキーをアップロードする<br>
     ※セキュリティのため、キーはgitやdockerイメージで共有せずに各自で保管しておく
-  
 
         $ gcloud compute scp <service_account_key> <USER_NAME>@<INSTANCE_NAME>:/path/to/<repository_NAME>
-        # "upload.py" の変数 keyfile_path とアップロード後のパスを一致させる必要がある
+        # "gcp_client/parameter.py" の変数 "keyfile_path" とアップロード後のパスを一致させる
           初期は'/home/zdc/lineCTmpi/<service_account_key>'としている
         
 
@@ -81,16 +82,17 @@
 2. インスタンステンプレートの作成
         
         仮想マシン > インスタンステンプレート > インスタンステンプレートを作成
-        マシンの構成：シリーズ N1, マシンタイプ カスタム（コア数1,メモリ1.5GB）
-        ブートディスク：カスタムイメージ, ＜作成したイメージ＞, 種類 標準永続ディスク, サイズ20GB（目安）
-        ファイアウォール：HTTP,HTTPSトラフィックを両方許可
+        　マシンの構成：シリーズ N1, マシンタイプ カスタム（コア数1,メモリ1.5GB）
+        　ブートディスク：カスタムイメージ, ＜作成したイメージ＞, 種類 標準永続ディスク, サイズ20GB（目安）
+        　ファイアウォール：HTTP,HTTPSトラフィックを両方許可
 
 3. インスタンスグループの作成
 
         インスタンスグループ > インスタンスグループ > インスタンスグループを作成
-        インスタンステンプレート：＜作成したテンプレート＞
-        ロケーション：シングルゾーン, リージョン us-central1（アイオワ）, ゾーン us-central1-b
-        自動スケーリング：自動スケーリングの構成を削除> ページ上部にインスタンス数を指定する欄が増えているため 0 にしておく
+        　名前：任意  # "gcp_client/parameter.py" の変数 "instance_group" と一致させる
+        　インスタンステンプレート：＜作成したテンプレート＞
+        　ロケーション：シングルゾーン, リージョン us-central1（アイオワ）, ゾーン us-central1-b
+        　自動スケーリング：自動スケーリングの構成を削除> ページ上部にインスタンス数を指定する欄が増えているため 0 にしておく
         詳細設定を表示 > マネージドインスタンスリストAPI呼び出しの結果：ページ分割あり（大規模なグループに推奨）
 
 ## GCP上での高性能VM単独実行方法
