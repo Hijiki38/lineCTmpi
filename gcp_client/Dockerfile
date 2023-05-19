@@ -2,6 +2,7 @@ FROM ubuntu:22.04
 
 COPY ./linectmpi-fcfdc9557818.json /home/
 COPY ./cloud_shell.py /home/
+COPY ./parameter.py /home
 
 RUN yes | apt update \
     && yes | apt install curl \

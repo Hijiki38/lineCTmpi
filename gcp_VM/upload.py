@@ -2,7 +2,9 @@ from __future__ import print_function
 import os
 import glob
 import sys
-sys.path.append('/home/zdc/lib')
+sys.path.append("../gcp_client/parameter")
+import parameter as p
+
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
@@ -11,8 +13,9 @@ from google.oauth2 import service_account
 args = sys.argv      #引数を指定
 file_path = args[1]  #入力ファイルのパス("/"まで)
 all_files = glob.glob(F'{file_path}*.csv')
-keyfile_path = '/home/zdc/lineCTmpi/linectmpi-fcfdc9557818.json'
-share_drive_id = '1pQ5akiTWsCuqtgw3ZbTBQFIR_xmvvp1L'
+
+keyfile_path = p.keyfile_path
+share_drive_id = p.share_drive_id
 
 def upload_basic():
     """Insert new file.

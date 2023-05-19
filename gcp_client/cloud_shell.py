@@ -1,29 +1,30 @@
 import subprocess
 import asyncio
+import parameter as p
 
 # GCP用パラメータ
-zone = 'us-central1-b'	# インスタンスグループを作成したZONE
-instance_group_name = 'linectmpi'	# インスタンスグループ名
-user_name = "zdc"   # インスタンスで作成した共有ユーザ名
-num_instance = 3	# 同時実行するインスタンス数
-poling_timer = 10	# 処理待ち時の待機時間(sec)
+zone = p.zone
+instance_group_name = p.instance_group_name  
+user_name = p.user_name 
+num_instance = p.num_instance 
+poling_timer = p.poling_timer 
 
 # 計算用パラメータ
-par_sod = 11.6	# 線源ー被写体間距離(cm)
-par_sdd = 50	# 線源ー検出器間距離(cm)
-par_ptch = 0.01	# ピクセルの大きさ(cm)
-par_ttms = 1024	# ピクセル数
-par_step = 1440	# 投影数
-par_hist = 1000	# 光子数
-par_istp = 500	# 開始投影数（途中から投影をしたい場合）
-par_xstp = 4	# 1インスタンス当たりの投影枚数 
-par_pntm = 3	# ファントム(0:Onion, 1:Tissue, 2:Metal)
-par_beam = 1	# ビーム(0:Parallel, 1:Fan)
+par_sod = p.par_sod
+par_sdd = p.par_sdd
+par_ptch = p.par_ptch
+par_ttms = p.par_ttms
+par_step = p.par_step
+par_hist = p.par_hist
+par_istp = p.par_istp
+par_xstp = p.par_xstp 
+par_pntm = p.par_pntm
+par_beam = p.par_beam
 
 # ファイル操作用パラメータ
-calc_dir_path = f'/home/{user_name}/lineCTmpi/core/'
-share_dir_path = f'/home/{user_name}/lineCTmpi/core/share/'
-gdrive_dir_path = f'/home/{user_name}/lineCTmpi/gcp_VM/'
+calc_dir_path = p.calc_dir_path 
+share_dir_path = p.share_dir_path 
+gdrive_dir_path = p.gdrive_dir_path 
 
 class Process:
     
