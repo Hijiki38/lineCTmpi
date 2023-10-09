@@ -26,6 +26,9 @@
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         [Google Cloud：gcloud CLI をインストールする](https://cloud.google.com/sdk/docs/install?hl=ja#linux)
 
+        ※ssh接続がうまくいかない場合、gcloudのコンフィギュレーション設定がうまくいっていない可能性
+        `gcloud init`の後に`gcloud auth login`や`gcloud config set project <PROJECT ID>`（プロジェクトIDはブラウザ上のプロジェクト一覧からコピー可）を試すとよい
+
 2. git clone
 
         $ sudo apt install -y git
