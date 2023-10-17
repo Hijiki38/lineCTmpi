@@ -1,4 +1,4 @@
 .vs*
 *.json
-*.gpg
+google-cloud-sdk.gpg
 share/
