@@ -28,6 +28,8 @@ $Command = "cd ${RemoteWorkingdir}/core && docker-compose up"
 # 秘密鍵のパス
 $SKey = "C:/Users/takum/.ssh/egs5_rsa"
 
+echo "start single"
+
 # リモートに.envとして送るためのファイルtmp.txtを作成
 Copy-Item -Path ${LocalWorkingDir}/../core/.env -Destination ${LocalWorkingDir}/tmp${execID}.txt -Force
 $content = Get-Content -Path ${LocalWorkingDir}/tmp${execID}.txt
@@ -63,6 +65,8 @@ scp -i ${SKey} ${LocalWorkingDir}/tmp${execID}.txt ${User}@${TargetHost}:${Remot
 
 # tmp.txt消去
 Remove-Item -Path ${LocalWorkingDir}/tmp${execID}.txt -Force
+
+echo "ssh connection"
 
 # SSH接続とコマンド実行
 ssh -i ${SKey} ${User}@${TargetHost} ${Command}

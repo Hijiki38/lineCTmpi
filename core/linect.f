@@ -127,6 +127,7 @@
 
       !open(6,FILE='egs5job.out',STATUS='unknown')
       open(40,FILE='source150kv.csv',STATUS='old')
+      !open(40,FILE='source152Eu.csv',STATUS='old')
       !open(40,FILE='source270kv_theta60_cu0.3mm.csv',STATUS='old')
       open(50,FILE='parameter.csv',STATUS='old')
 
@@ -319,6 +320,8 @@
 
       if(phantom.eq.9) then
         nmed=9
+      else if(phantom.eq.6) then
+        nmed=6
       else
         nmed=7
       end if
@@ -354,13 +357,14 @@
         medarr(7)='H2O                     '
 	    end if
 
-      !medarr(1)='CDTE                    '
-      !medarr(2)='AIR-AT-NTP              '
-      !medarr(3)='I1                      '
-      !medarr(4)='I2                      '
-      !medarr(5)='I3                      '
-      !medarr(6)='H2O                     '
-
+      if (phantom.eq.6) then
+        medarr(1)='CDTE                    '
+        medarr(2)='AIR-AT-NTP              '
+        medarr(3)='I3                      '
+        medarr(4)='I2                      '
+        medarr(5)='I1                      '
+        medarr(6)='H2O                     '
+      end if
 
       if (phantom.eq.5 .or. phantom.eq.8 .or. phantom.eq.9) then
         medarr(1)='CDTE                    '
@@ -391,7 +395,14 @@
         chard(8) = 0.05d0
         chard(9) = 0.05d0
         !chard(10) = 0.1d0
-      else
+      else if(phantom.eq.6) then
+        chard(1) = 0.01d0
+        chard(2) = 0.05d0
+        chard(3) = 0.05d0
+        chard(4) = 0.05d0
+        chard(5) = 0.05d0
+        chard(6) = 0.05d0
+      else 
         chard(1) = 0.01d0
         chard(2) = 0.05d0
         chard(3) = 0.05d0
@@ -406,6 +417,12 @@
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
       flush(6)
+
+      ! show medarr
+      do i=1,nmed
+        write(6,fmt="('medarr(',i2,') = ',A)") i,medarr(i)
+        flush(6)
+      end do
 
 !     -----------------------------------
 !     Run KEK PEGS5 before calling HATCH

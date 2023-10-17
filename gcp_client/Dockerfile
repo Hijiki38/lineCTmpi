@@ -1,6 +1,6 @@
 FROM ubuntu:22.04
 
-COPY ./linectmpi-fcfdc9557818.json /home/
+COPY ./linectmpi-9ea7c5efdb6c.json /home/
 COPY ./cloud_shell.py /home/
 
 RUN yes | apt update \
@@ -16,6 +16,6 @@ RUN cd /home \
     && echo 'export PATH=$PATH:/home/google-cloud-sdk/bin' >> /root/.bashrc\
     && gcloud config set core/disable_usage_reporting true \
     && gcloud config set component_manager/disable_update_check true \
-    && gcloud auth activate-service-account --key-file=/home/linectmpi-fcfdc9557818.json --project=linectmpi
+    && gcloud auth activate-service-account --key-file=/home/linectmpi-9ea7c5efdb6c.json --project=linectmpi
 
-CMD ["sh", "-c", "export GOOGLE_APPLICATION_CREDENTIALS=/home/linectmpi-fcfdc9557818.json && /bin/bash"]
+CMD ["sh", "-c", "export GOOGLE_APPLICATION_CREDENTIALS=/home/linectmpi-9ea7c5efdb6c.json && /bin/bash"]

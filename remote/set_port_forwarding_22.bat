@@ -1,1 +1,1 @@
-wsl --exec bash /mnt/c/Users/takum/Dropbox/Aoki_Lab/simulation/egs/lineCTmpi2/port_forwarding_22.sh
+wsl --exec bash /mnt/c/Users/takum/Dropbox/Aoki_Lab/simulation/egs/lineCTmpi/remote/set_port_forwarding_22.sh
