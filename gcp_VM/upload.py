@@ -2,7 +2,7 @@ from __future__ import print_function
 import os
 import glob
 import sys
-sys.path.append('/home/zdc/lib')
+sys.path.append('/home/takumi_h/lib')
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
@@ -11,7 +11,7 @@ from google.oauth2 import service_account
 args = sys.argv     #引数を指定
 file_path = args[1] #入力ファイルのパス("/"まで)
 all_files = glob.glob(F'{file_path}*.csv')
-keyfile_path = '/home/zdc/lineCTmpi/linectmpi-fcfdc9557818.json'
+keyfile_path = '/home/takumi_h/lineCTmpi/linectmpi-401502-711efe271615.json'
 share_drive_id = '1pQ5akiTWsCuqtgw3ZbTBQFIR_xmvvp1L'
 
 def upload_basic():

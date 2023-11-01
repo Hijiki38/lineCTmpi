@@ -4,25 +4,25 @@ import asyncio
 # GCP用パラメータ
 zone = 'us-central1-b'	# インスタンスグループを作成したZONE
 instance_group_name = 'linectmpi'	# インスタンスグループ名
-num_instance = 3	# 同時実行するインスタンス数
+num_instance = 4	# 同時実行するインスタンス数
 poling_timer = 10	# 処理待ち時の待機時間(sec)
 
 # 計算用パラメータ
-par_sod = 11.6	# 線源ー被写体間距離(cm)
-par_sdd = 50	# 線源ー検出器間距離(cm)
+par_sod = 40	# 線源ー被写体間距離(cm)
+par_sdd = 80	# 線源ー検出器間距離(cm)
 par_ptch = 0.01	# ピクセルの大きさ(cm)
 par_ttms = 128 #1024	# ピクセル数
-par_step = 8 #1440	# 投影数
-par_hist = 1000	# 光子数
+par_step = 4 #1440	# 投影数
+par_hist = 1000#996838	# 光子数
 par_istp = 0 #500	# 開始投影数（途中から投影をしたい場合）
-par_xstp = 4	# 1インスタンス当たりの投影枚数 
-par_pntm = 6	# ファントム(0:Onion, 1:Tissue, 2:Metal)
+par_xstp = 1	# 1インスタンス当たりの投影枚数 
+par_pntm = 7	# ファントム(0:Onion, 1:Tissue, 2:Metal)
 par_beam = 1	# ビーム(0:Parallel, 1:Fan)
 
 # ファイル操作用パラメータ
-calc_dir_path = '/home/takumi/lineCTmpi/core/'
-share_dir_path = '/home/takumi/lineCTmpi/core/share/'
-gdrive_dir_path = '/home/takumi/lineCTmpi/gcp_VM/'
+calc_dir_path = '/home/takumi_h/lineCTmpi/core/'
+share_dir_path = '/home/takumi_h/lineCTmpi/core/share/'
+gdrive_dir_path = '/home/takumi_h/lineCTmpi/gcp_VM/'
 
 class Process:
     

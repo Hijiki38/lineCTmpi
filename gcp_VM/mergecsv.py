@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/home/zdc/lib')
+sys.path.append('/home/takumi_h/lib')
 import glob
 import csv
 import os
