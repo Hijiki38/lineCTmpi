@@ -320,7 +320,7 @@
 
       if(phantom.eq.9) then
         nmed=9
-      else if(phantom.eq.6) then
+      else if(phantom.eq.6 .or. phantom.eq.7) then
         nmed=6
       else
         nmed=7
@@ -357,7 +357,7 @@
         medarr(7)='H2O                     '
 	    end if
 
-      if (phantom.eq.6) then
+      if (phantom.eq.6 .or. phantom.eq.7) then
         medarr(1)='CDTE                    '
         medarr(2)='AIR-AT-NTP              '
         medarr(3)='I3                      '
@@ -395,7 +395,7 @@
         chard(8) = 0.05d0
         chard(9) = 0.05d0
         !chard(10) = 0.1d0
-      else if(phantom.eq.6) then
+      else if(phantom.eq.6 .or. phantom.eq.7) then
         chard(1) = 0.01d0
         chard(2) = 0.05d0
         chard(3) = 0.05d0
