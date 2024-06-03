@@ -24,7 +24,7 @@ services:
       && echo "SOD,$PAR_SOD" > /app/parameter.csv 
       && echo "SDD,$PAR_SDD" >> /app/parameter.csv 
       && echo "PTCH,$PAR_PTCH" >> /app/parameter.csv 
-      && echo "TTMS,$PAR_TTMS" >> /app/parameter.csv 
+      && echo "TTMS,$PAR_TTMS" >> /app/parameter.csv
       && echo "STEP,$PAR_STEP" >> /app/parameter.csv 
       && echo "HIST,$PAR_HIST" >> /app/parameter.csv
       && echo "ISTP,$PAR_ISTP" >> /app/parameter.csv
@@ -32,6 +32,12 @@ services:
       && echo "PNTM,$PAR_PNTM" >> /app/parameter.csv 
       && echo "BEAM,$PAR_BEAM" >> /app/parameter.csv 
       && echo "PATH,$PAR_PATH" >> /app/parameter.csv 
-      && cp -f "$INPFILE.inp" ./linect.inp 
+      && cp -f "$INPFILE.inp" /app/linect.inp
+      && cp -f "$XSRCFILE.csv" /app/source.csv
+      && sed -i "s/\r//" /app/linect.inp
+      && sed -i "s/\r//" /app/source.csv
+      && sed -i "s/\r//" /app/egs5mpirun
       && echo "$FFILE" | ./egs5mpirun foreground $PAR_PATH $NUM_CPU
       && touch /app/share/done'
+
+#       && cp -f "$INPFILE.inp" ./linect.inp 

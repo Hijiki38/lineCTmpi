@@ -126,7 +126,8 @@
 	    write(rank_str, '(I6.6)') mpi_rank
 
       !open(6,FILE='egs5job.out',STATUS='unknown')
-      open(40,FILE='source150kv.csv',STATUS='old')
+      !open(40,FILE='source150kv.csv',STATUS='old')
+      open(40,FILE='source.csv',STATUS='old')
       !open(40,FILE='source270kv_theta60_cu0.3mm.csv',STATUS='old')
       open(50,FILE='parameter.csv',STATUS='old')
 

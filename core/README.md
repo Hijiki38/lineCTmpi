@@ -1,8 +1,9 @@
 # lineCTmpiを実行するDocker環境
 
 ## パラメータ（.envに記述）
-FFILE:    実行する.fファイルの名前（拡張子不要。例: linect.f なら FFILE=linect）
-INPFILE:  .inpファイルの名前（拡張子不要）
+FFILE:    実行する.fファイルのパス（拡張子不要。例: linect.f なら FFILE=linect）
+INPFILE:  .inpファイルのパス（拡張子不要）
+XSRCFILE:   線源ファイルのパス (拡張子不要)
 NUM_CPU:	CPUの物理コア数  
 PAR_SOD:	線源ー被写体間距離(cm)  
 PAR_SDD:	線源ー検出器間距離(cm)  
