@@ -1,0 +1,11 @@
+COMP
+ &INP NE=2,RHO= 1.0,PZ= 2.,1.
+      IRAYL=1,IBOUND=1,INCOH=1,ICPROF=-3,IMPACT=1  &END
+H2O                           H2O
+H  O
+ENER
+ &INP AE=0.512,AP=0.001,UE=1.511,UP=1.0 &END
+PWLF
+ &INP  &END
+DECK
+ &INP  &END

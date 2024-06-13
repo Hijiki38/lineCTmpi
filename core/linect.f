@@ -61,7 +61,7 @@
       integer,parameter :: maxch = 1000    !max channel of the detector
       integer,parameter :: maxtrans = 4096 !150 !max translation times
       integer,parameter :: maxspec = 18000  !max row of source.csv
-      integer,parameter :: maxparam = 10
+      integer,parameter :: maxparam = 9
 
       common/totals/depe(4096),deltae,maxpict,transi
       real*8 depe,deltae,spec
@@ -85,7 +85,9 @@
      * i,icases,idin,ie,ifti,ifto,ifct,imed,ireg,nlist,j,ntype,
      * cti,l,nos,cto,ctp,translation_times,ctstep,stepi,initstep,
      * haltstep,npr,ifto_original,ifto_dummy,nor,prmi,
-     * phantom,beam!,mpi_ifct
+     * beam!,phantom,mpi_ifct
+
+      integer ios, nel, geomid, znpiv, nzn, zn
 
       !for counting time
       integer(int32) :: time_begin_c,time_end_c, CountPerSec, CountMax
@@ -99,6 +101,8 @@
       character*22 savepath
       character*22 degfile
       character*25 pictfile
+
+      character*24 linebuf
 
       character(4) :: paramname(maxparam)
 
@@ -126,11 +130,10 @@
 	    write(rank_str, '(I6.6)') mpi_rank
 
       !open(6,FILE='egs5job.out',STATUS='unknown')
-      !open(40,FILE='source150kv.csv',STATUS='old')
       open(40,FILE='source.csv',STATUS='old')
-      !open(40,FILE='source270kv_theta60_cu0.3mm.csv',STATUS='old')
       open(50,FILE='parameter.csv',STATUS='old')
-
+      open(60,FILE='material.csv',STATUS='old')
+      open(70,FILE='geometry.geom',STATUS='old')
 
 !     ====================
       call counters_out(0)
@@ -151,7 +154,7 @@
       ifto_original=39    ! Output unit number for pictfile
       ifto_dummy=41   !Output unit number for dummy pictfile
       apch=1     ! Initialization of apch
-      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues, 6:small, 7:smallfour)
+      !phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues, 6:small, 7:smallfour)
       beam=1     ! Beam Type (0:Parallel, 1:Fan)
       savepath="share" ! Path for output
 !-----------------------------------------------------------------------
@@ -266,11 +269,11 @@
       npr=npr+1
       haltstep = parameters(npr)
       npr=npr+1
-      phantom = parameters(npr)
-      npr=npr+1
-      if(phantom.lt.0 .or. phantom.gt.10) then
-        write(6,*) "phantom number you entered is not defined"
-      end if
+      !phantom = parameters(npr)
+      !npr=npr+1
+      ! if(phantom.lt.0 .or. phantom.gt.10) then
+      !   write(6,*) "phantom number you entered is not defined"
+      ! end if
       beam = parameters(npr)
       npr=npr+1
       if(beam.lt.0 .or. beam.gt.1) then
@@ -285,7 +288,7 @@
       print *,"    HISTORY NUMBER:",totalcases
       print *,"      INITIAL STEP:",initstep
       print *,"         HALT STEP:",haltstep
-      print *,"      PHANTOM TYPE:",phantom
+!      print *,"      PHANTOM TYPE:",phantom
       print *,"         BEAM TYPE:",beam
       print *,"--------------------"
 !-----------------------------------------------------------------------
@@ -318,11 +321,16 @@
       write(6,*) "pegs5-call"
       flush(6)
 
-      if(phantom.eq.9) then
-        nmed=9
-      else
-        nmed=7
-      end if
+      !open(unit=60,file='medarr.csv',status='old')
+      ! set nmed to num of rows in medarr.csv
+      nmed = 0
+      do i = 1, MXMED
+         ! if end of file (cant lead) then exit
+          read(60, '(A24)') medarr(i)
+          if (medarr(i).eq.'') exit
+          nmed = nmed + 1
+      end do
+
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -330,30 +338,32 @@
         flush(6)
         stop
       end if
+      close(unit=60)
+
 
 !     ==============
       call block_set                 ! Initialize some general variables
 !     ==============
 
-!      medarr(1)='CDTE                    '
-!      medarr(2)='AIR-AT-NTP              '
-!      medarr(3)='AL                      '
-!      medarr(4)='PMMA                    '
-!      medarr(5)='H2O                     '
-!      medarr(6)='PVC                     '
-!      medarr(7)='TI                      '
-!      medarr(8)='C                       '
-!      medarr(9)='NI                      '
 
-	    if (phantom.eq.3 .or. phantom.eq.4) then
-        medarr(1)='CDTE                    '
-        medarr(2)='AIR-AT-NTP              '
-        medarr(3)='AL                      '
-        medarr(4)='CU                      '
-        medarr(5)='TI                      '
-        medarr(6)='C                       '
-        medarr(7)='H2O                     '
-	    end if
+      ! medarr(1)='CDTE                    '
+      ! medarr(2)='AIR-AT-NTP              '
+      ! medarr(3)='AL                      '
+      ! medarr(4)='C                       '
+      ! medarr(5)='MG                      '
+      ! medarr(6)='H2O                     '
+      ! medarr(7)='TI                      '
+      ! medarr(8)='C                       '
+      ! medarr(9)='NI                      '
+	    ! if (phantom.eq.3 .or. phantom.eq.4) then
+      !   medarr(1)='CDTE                    '
+      !   medarr(2)='AIR-AT-NTP              '
+      !   medarr(3)='AL                      '
+      !   medarr(4)='CU                      '
+      !   medarr(5)='TI                      '
+      !   medarr(6)='C                       '
+      !   medarr(7)='H2O                     '
+	    ! end if
 
       !medarr(1)='CDTE                    '
       !medarr(2)='AIR-AT-NTP              '
@@ -363,17 +373,17 @@
       !medarr(6)='H2O                     '
 
 
-      if (phantom.eq.5 .or. phantom.eq.8 .or. phantom.eq.9) then
-        medarr(1)='CDTE                    '
-        medarr(2)='AIR-AT-NTP              '
-        medarr(3)='AL                      '
-        medarr(4)='PMMA                    '
-        medarr(5)='H2O                     '
-        medarr(6)='PVC                     '
-        medarr(7)='PLA                     '
-        medarr(8)='C                       '
-        medarr(9)='ABS                     '
-      end if
+      ! if (phantom.eq.5 .or. phantom.eq.8 .or. phantom.eq.9) then
+      !   medarr(1)='CDTE                    '
+      !   medarr(2)='AIR-AT-NTP              '
+      !   medarr(3)='AL                      '
+      !   medarr(4)='PMMA                    '
+      !   medarr(5)='H2O                     '
+      !   medarr(6)='PVC                     '
+      !   medarr(7)='PLA                     '
+      !   medarr(8)='C                       '
+      !   medarr(9)='ABS                     '
+      ! end if
 
       do j=1,nmed
         do i=1,24
@@ -381,29 +391,44 @@
         end do
       end do
 
-      if(phantom.eq.9) then
-        chard(1) = 0.01d0
-        chard(2) = 0.05d0
-        chard(3) = 0.05d0
-        chard(4) = 0.0005d0
-        chard(5) = 0.05d0
-        chard(6) = 0.05d0
-        chard(7) = 0.05d0
-        chard(8) = 0.05d0
-        chard(9) = 0.05d0
-        !chard(10) = 0.1d0
-      else
-        chard(1) = 0.01d0
-        chard(2) = 0.05d0
-        chard(3) = 0.05d0
-        chard(4) = 0.05d0
-        chard(5) = 0.05d0
-        chard(6) = 0.05d0
-        chard(7) = 0.05d0
-        !chard(8) = 0.05d0
-        !chard(9) = 0.05d0
-        !chard(10) = 0.1d0
-      endif
+      do j=1,nmed
+        if (j.eq.1) then
+          chard(j)=0.01d0
+        else
+          chard(j)=0.05d0
+        end if
+      end do
+
+      ! chard(1) = 0.001d0
+      ! chard(2) = 0.005d0
+      ! chard(3) = 0.005d0
+      ! chard(4) = 0.005d0
+      ! chard(5) = 0.005d0
+      ! !chard(6) = 0.005d0
+
+      ! if(phantom.eq.9) then
+      !   chard(1) = 0.01d0
+      !   chard(2) = 0.05d0
+      !   chard(3) = 0.05d0
+      !   chard(4) = 0.0005d0
+      !   chard(5) = 0.05d0
+      !   chard(6) = 0.05d0
+      !   chard(7) = 0.05d0
+      !   chard(8) = 0.05d0
+      !   chard(9) = 0.05d0
+      !   !chard(10) = 0.1d0
+      ! else
+      !   chard(1) = 0.01d0
+      !   chard(2) = 0.05d0
+      !   chard(3) = 0.05d0
+      !   chard(4) = 0.05d0
+      !   chard(5) = 0.05d0
+      !   chard(6) = 0.05d0
+      !   chard(7) = 0.05d0
+      !   !chard(8) = 0.05d0
+      !   !chard(9) = 0.05d0
+      !   !chard(10) = 0.1d0
+      ! endif
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
       flush(6)
@@ -419,6 +444,8 @@
       !call pegs5
       call egs5mpi_pegscall
 !     ==========
+
+      
 
 
 !-----------------------------------------------------------------------
@@ -621,288 +648,356 @@
 !-----------------------------------------------
 ! If you want to modify the geometry of the sample, change this part.
 
-! ---- "Single rod Phantom" ----
-      if(phantom.eq.0) then
-        ctgeom(1,cti)=0.0e0 !ph1
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.15e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
+      !   do i = 1, MXMED
+      !     ! if end of file (cant lead) then exit
+      !     read(60, '(A24)') medarr(i)
+      !     if (medarr(i).eq.'') exit
+      !     nmed = nmed + 1
+      ! end do
+      ! close(unit=60)
+! error text
+9010  FORMAT('Error reading geometry file')
 
-! ---- "Two rods Phantom" ----
-      if(phantom.eq.1 .or. phantom.eq.2) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=1.0e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.5e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.5e0
-        ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.5e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
+      write(6,*) 'Read geometry file 1'
 
-      ! ---- "Four rods Phantom" ----
-      if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=1.0e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.5e0 !ph1
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.15e0
-        !ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph2
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.5e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.15e0
-        !ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.5e0 !ph3
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.15e0
-        !ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph4
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=-0.5e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.15e0
-        !ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
+      do
+        read(70, '(A24)', iostat=ios) linebuf
+        if (ios.ne.0) then
+          write(6,9010)
+          stop
+        end if
+        
+        if (linebuf(1:3).eq.'END') then
+          exit
+        end if
+        
+        if (linebuf(1:1).eq.'#') then
+          cycle
+        end if
 
-      ! ---- "Single rod Phantom small" ----
-      if(phantom.eq.6) then
-        ctgeom(1,cti)=0.0e0 
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph1
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.075e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
+        if (linebuf(1:4).eq.'NEXT') then
+          cycle
+        end if
 
-      ! ---- "Four rods Phantom small" ----
-      if(phantom.eq.7) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.125e0 !ph1
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.05e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph2
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.125e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.05e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.125e0 !ph3
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.05e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph4
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=-0.125e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.05e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
 
-      ! ---- "Four rods Phantom square" ----
-      if(phantom.eq.8) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.7e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.1e0 !ph1
-        ctgeom(2,cti)=0.5e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=-0.1e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.1e0 !ph2
-        ctgeom(2,cti)=0.5e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=0.1e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.5e0 !ph3
-        ctgeom(2,cti)=-0.1e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=0.1e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.5e0 !ph4
-        ctgeom(2,cti)=-0.1e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=-0.1e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-      end if
+        ! read to geomid
+        write(6,*) 'linebuf(1): '
+        write(6,*) linebuf
+        read(linebuf,*) geomid
 
-      ! ---- "Four rods Phantom square2" ----
-      if(phantom.eq.9) then
-        ctgeom(1,cti)=-0.15e0 !ph1
-        ctgeom(2,cti)=0.35e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=0.0e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+        read(70, '(A24)', iostat=ios) linebuf
+        if (ios.ne.0) then
+          write(6,9010)
+          stop
+        end if
+        read(linebuf,*) nel
+
+        do i=1,nel
+          read(70, '(A24)', iostat=ios) linebuf
+          if (ios.ne.0) then
+            write(6,9010)
+            stop
+          end if
+          read(linebuf,*) ctgeom(i,cti)
+          ! if linebuf begins with "END", increment cti and nos
+        end do
+
+        write(ifti,*) geomkind(geomid),cti,(ctgeom(cto,cti),cto=1,nel)
         cti=cti+1
         nos=nos+1
-        ctgeom(1,cti)=-0.25e0 !ph2
-        ctgeom(2,cti)=-0.20e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.325e0 !ph3
-        ctgeom(2,cti)=-0.300e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.4125e0 !ph4
-        ctgeom(2,cti)=-0.4000e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-      end if
+
+
+        ! read(70, '(A24)', iostat=ios) linebuf
+        ! if ((ios.ne.0).or.(linebuf(1:3).ne.'END')) then
+        !   write(6,*) "Finished reading geometry file"
+        !   exit
+        ! end if
+
+      end do
+
+
+! ! ---- "Single rod Phantom" ----
+!       if(phantom.eq.0) then
+!         ctgeom(1,cti)=0.0e0 !ph1
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.15e0
+!         ctgeom(7,cti)=0.15e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!       end if
+
+! ! ---- "Two rods Phantom" ----
+!       if(phantom.eq.1 .or. phantom.eq.2) then
+!         ctgeom(1,cti)=0.0e0
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ctgeom(7,cti)=1.0e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.5e0
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.5e0
+!         ctgeom(7,cti)=0.25e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=-0.5e0
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.15e0
+!         ctgeom(7,cti)=0.25e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!       end if
+
+!       ! ---- "Four rods Phantom" ----
+!       if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
+!         ctgeom(1,cti)=0.0e0
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ctgeom(7,cti)=1.0e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.5e0 !ph1
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ctgeom(7,cti)=0.15e0
+!         !ctgeom(7,cti)=0.25e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.0e0 !ph2
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.5e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ctgeom(7,cti)=0.15e0
+!         !ctgeom(7,cti)=0.25e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=-0.5e0 !ph3
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ctgeom(7,cti)=0.15e0
+!         !ctgeom(7,cti)=0.25e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.0e0 !ph4
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=-0.5e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ctgeom(7,cti)=0.15e0
+!         !ctgeom(7,cti)=0.25e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!       end if
+
+!       ! ---- "Single rod Phantom small" ----
+!       if(phantom.eq.6) then
+!         ctgeom(1,cti)=0.0e0 
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.15e0
+!         ctgeom(7,cti)=0.25e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.0e0 !ph1
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.15e0
+!         ctgeom(7,cti)=0.075e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!       end if
+
+!       ! ---- "Four rods Phantom small" ----
+!       if(phantom.eq.7) then
+!         ctgeom(1,cti)=0.0e0
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ctgeom(7,cti)=0.25e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.125e0 !ph1
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.15e0
+!         ctgeom(7,cti)=0.05e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.0e0 !ph2
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.125e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.15e0
+!         ctgeom(7,cti)=0.05e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=-0.125e0 !ph3
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.15e0
+!         ctgeom(7,cti)=0.05e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.0e0 !ph4
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=-0.125e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ! ctgeom(7,cti)=0.15e0
+!         ctgeom(7,cti)=0.05e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!       end if
+
+!       ! ---- "Four rods Phantom square" ----
+!       if(phantom.eq.8) then
+!         ctgeom(1,cti)=0.0e0
+!         ctgeom(2,cti)=-0.75e0
+!         ctgeom(3,cti)=0.0e0
+!         ctgeom(4,cti)=0.0e0
+!         ctgeom(5,cti)=1.5e0
+!         ctgeom(6,cti)=0.0e0
+!         ctgeom(7,cti)=0.7e0 !radius
+!           write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.1e0 !ph1
+!         ctgeom(2,cti)=0.5e0
+!         ctgeom(3,cti)=-0.75e0
+!         ctgeom(4,cti)=0.75e0
+!         ctgeom(5,cti)=-0.4e0
+!         ctgeom(6,cti)=-0.1e0
+!           write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=0.1e0 !ph2
+!         ctgeom(2,cti)=0.5e0
+!         ctgeom(3,cti)=-0.75e0
+!         ctgeom(4,cti)=0.75e0
+!         ctgeom(5,cti)=0.1e0
+!         ctgeom(6,cti)=0.4e0
+!           write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=-0.5e0 !ph3
+!         ctgeom(2,cti)=-0.1e0
+!         ctgeom(3,cti)=-0.75e0
+!         ctgeom(4,cti)=0.75e0
+!         ctgeom(5,cti)=0.1e0
+!         ctgeom(6,cti)=0.4e0
+!           write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=-0.5e0 !ph4
+!         ctgeom(2,cti)=-0.1e0
+!         ctgeom(3,cti)=-0.75e0
+!         ctgeom(4,cti)=0.75e0
+!         ctgeom(5,cti)=-0.4e0
+!         ctgeom(6,cti)=-0.1e0
+!           write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+!         cti=cti+1
+!         nos=nos+1
+!       end if
+
+!       ! ---- "Four rods Phantom square2" ----
+!       if(phantom.eq.9) then
+!         ctgeom(1,cti)=-0.15e0 !ph1
+!         ctgeom(2,cti)=0.35e0
+!         ctgeom(3,cti)=-0.75e0
+!         ctgeom(4,cti)=0.75e0
+!         ctgeom(5,cti)=0.0e0
+!         ctgeom(6,cti)=0.4e0
+!           write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=-0.25e0 !ph2
+!         ctgeom(2,cti)=-0.20e0
+!         ctgeom(3,cti)=-0.75e0
+!         ctgeom(4,cti)=0.75e0
+!         ctgeom(5,cti)=-0.4e0
+!         ctgeom(6,cti)=0.4e0
+!           write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=-0.325e0 !ph3
+!         ctgeom(2,cti)=-0.300e0
+!         ctgeom(3,cti)=-0.75e0
+!         ctgeom(4,cti)=0.75e0
+!         ctgeom(5,cti)=-0.4e0
+!         ctgeom(6,cti)=0.4e0
+!           write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+!         cti=cti+1
+!         nos=nos+1
+!         ctgeom(1,cti)=-0.4125e0 !ph4
+!         ctgeom(2,cti)=-0.4000e0
+!         ctgeom(3,cti)=-0.75e0
+!         ctgeom(4,cti)=0.75e0
+!         ctgeom(5,cti)=-0.4e0
+!         ctgeom(6,cti)=0.4e0
+!           write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
+!         cti=cti+1
+!         nos=nos+1
+!       end if
 
 !SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1
 
@@ -931,62 +1026,145 @@
 !-----------------------------------------------
 130   FORMAT('Z',I0.4,' +',I0)
 140   FORMAT(' -',I0)
+
       write(ifti,130,advance='no') nor,nor+1 ! Z0513  +514  -1 -515
+      write(ifti,140,advance='no') 1 !subtract detector zone
       !do transi=0,translation_times-1 !subtract detector zones
       !  write(ifti,140, advance='no') transi+1 ! 
       !end do
 
-      write(ifti,140,advance='no') 1 !subtract detector zone
-      if(phantom.eq.9) then
-        write(ifti,140,advance='no') nor+2 !subtract sample zone
-        write(ifti,140,advance='no') nor+3
-        write(ifti,140,advance='no') nor+4
-        write(ifti,140) nor+5
-      else
-        write(ifti,140) nor+2 !subtract sample zone
-      end if
-      nor=nor+1
+      
+      write(6,*) 'Read geometry file 2'
 
-      if(phantom.eq.0) then
-	     write(ifti,130) nor,nor+1
-	     nor=nor+1
-      else if(phantom.eq.6) then
-        write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
-        write(ifti,140) nor+2  !subtract rod 1
+      znpiv=nor+2 !index of the first zone of the phantom
+      do
+        read(70, '(A24)', iostat=ios) linebuf
+        write(6,*) 'linebuf: '
+        write(6,*) linebuf
+        if (ios.ne.0) then
+          write(6,9010)
+          stop
+        end if
+        
+        if (linebuf(1:3).eq.'END') then
+          exit
+        end if
 
-        nor=nor+1
+        if (linebuf(1:1).eq.'#') then
+          cycle
+        end if
 
-        write(ifti,130) nor,nor+1 !rod1  Z0515 +516
-        nor=nor+1
-      else if(phantom.eq.9) then
-        write(ifti,130) nor,nor+1 !rod 1
-        nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 2
-        nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 3
-        nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 4
-        nor=nor+1
-      else
-        write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
-        write(ifti,140,advance='no') nor+2  !subtract rod 1
-        write(ifti,140,advance='no') nor+3 !subtract rod 2
-        write(ifti,140,advance='no') nor+4 !subtract rod 3
-        write(ifti,140) nor+5 !subtract rod 4
+        if (linebuf(1:4).eq.'NEXT') then
+          nor=nor+1
+          cycle
+        end if
+        
+        if (linebuf(1:4).eq.'INIT') then
+          read(70, '(A24)', iostat=ios) linebuf
+          if (ios.ne.0) then
+            write(6,9010)
+            stop
+          end if
+          read(linebuf,*) zn
+          write(ifti,130,advance='no') nor,znpiv+zn!nor+1+zn+znpiv
 
-        nor=nor+1
+        else if (linebuf(1:3).eq.'ADD') then
+          read(70, '(A24)', iostat=ios) linebuf
+          if (ios.ne.0) then
+            write(6,9010)
+            stop
+          end if
+          read(linebuf,*) zn
+          write(ifti,130) nor,znpiv+zn!nor+1+zn+znpiv
 
-        write(ifti,130) nor,nor+1 !rod1  Z0515 +516
-        nor=nor+1
-        write(ifti,130) nor,nor+1
-        nor=nor+1
-        !if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5 .or. phantom.eq.7) then
-        write(ifti,130) nor,nor+1 !rod 3
-        nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 4
-        nor=nor+1
-        !end if
-      end if
+        else if (linebuf(1:3).eq.'SUB') then
+          read(70, '(A24)', iostat=ios) linebuf
+          if (ios.ne.0) then
+            write(6,9010)
+            stop
+          end if
+          read(linebuf,*) nzn
+          do i=1,nzn
+            read(70, '(A24)', iostat=ios) linebuf
+            if (ios.ne.0) then
+              write(6,9010)
+              stop
+            end if
+            read(linebuf,*) zn
+            if (i.ne.nzn) then
+              write(ifti,140,advance='no') znpiv+zn !nor+1+zn+znpiv
+            else
+              write(ifti,140) zn+znpiv
+            end if
+          end do
+        end if
+
+        ! read(70, '(A24)', iostat=ios) linebuf
+        ! write(6,*) 'linebuf(next): '
+        ! write(6,*) linebuf
+        ! if (linebuf(1:4).eq.'NEXT') then
+        !   nor=nor+1
+        !   cycle
+        ! else
+        !   write(6,*) 'Error: NEXT not found'
+        !   stop
+        ! end if
+      end do
+
+
+
+      ! write(ifti,140,advance='no') 1 !subtract detector zone
+
+      ! if(phantom.eq.9) then
+      !   write(ifti,140,advance='no') nor+2 !subtract sample zone
+      !   write(ifti,140,advance='no') nor+3
+      !   write(ifti,140,advance='no') nor+4
+      !   write(ifti,140) nor+5
+      ! else
+      !   write(ifti,140) nor+2 !subtract sample zone
+      ! end if
+      ! nor=nor+1
+
+      ! if(phantom.eq.0) then
+	    !  write(ifti,130) nor,nor+1
+	    !  nor=nor+1
+      ! else if(phantom.eq.6) then
+      !   write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
+      !   write(ifti,140) nor+2  !subtract rod 1
+
+      !   nor=nor+1
+
+      !   write(ifti,130) nor,nor+1 !rod1  Z0515 +516
+      !   nor=nor+1
+      ! else if(phantom.eq.9) then
+      !   write(ifti,130) nor,nor+1 !rod 1
+      !   nor=nor+1
+      !   write(ifti,130) nor,nor+1 !rod 2
+      !   nor=nor+1
+      !   write(ifti,130) nor,nor+1 !rod 3
+      !   nor=nor+1
+      !   write(ifti,130) nor,nor+1 !rod 4
+      !   nor=nor+1
+      ! else
+      !   write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
+      !   write(ifti,140,advance='no') nor+2  !subtract rod 1
+      !   write(ifti,140,advance='no') nor+3 !subtract rod 2
+      !   write(ifti,140,advance='no') nor+4 !subtract rod 3
+      !   write(ifti,140) nor+5 !subtract rod 4
+
+      !   nor=nor+1
+
+      !   write(ifti,130) nor,nor+1 !rod1  Z0515 +516
+      !   nor=nor+1
+      !   write(ifti,130) nor,nor+1
+      !   nor=nor+1
+      !   !if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5 .or. phantom.eq.7) then
+      !   write(ifti,130) nor,nor+1 !rod 3
+      !   nor=nor+1
+      !   write(ifti,130) nor,nor+1 !rod 4
+      !   nor=nor+1
+      !   !end if
+      ! end if
 !SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
 
 
@@ -1023,49 +1201,113 @@
 !Media number of the Sample
 !-----------------------------------------------
 
-      if(phantom.eq.0) then
-        write(ifti,fmt='(a)',advance='no') " 5" !Ti
-      else if(phantom.eq.1) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 5"
-      else if(phantom.eq.2) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 7"
-      else if(phantom.eq.3) then
-        write(ifti,fmt='(a)',advance='no') " 3" !" 2" !back ground is Al
-        write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 5"
-        write(ifti,fmt='(a)',advance='no') " 4"
-      else if(phantom.eq.4) then
-        write(ifti,fmt='(a)',advance='no') " 2"
-        write(ifti,fmt='(a)',advance='no') " 2"!" 3"
-        write(ifti,fmt='(a)',advance='no') " 2"!" 4"
-        write(ifti,fmt='(a)',advance='no') " 2"!" 5"
-        write(ifti,fmt='(a)',advance='no') " 2"!" 6"
-      else if(phantom.eq.5 .or. phantom.eq.8) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 2"
-        write(ifti,fmt='(a)',advance='no') " 5"
-        write(ifti,fmt='(a)',advance='no') " 7"
-        write(ifti,fmt='(a)',advance='no') " 9"
-      else if(phantom.eq.6) then
-        write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 5"
-      else if(phantom.eq.7) then
-        write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 2"
-        write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 5"
-      else if(phantom.eq.9) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 4"
-      end if
+      ! do
+      !   read(70, '(A24)', iostat=ios) linebuf
+      !   if (ios.ne.0) then
+      !     write(6,9010)
+      !     stop
+      !   else if (linebuf(1:3).eq.'END') then
+      !     exit
+      !   end if
+        
+      !   if (linebuf(1:4).eq.'INIT') then
+      !     read(70, '(A24)', iostat=ios) linebuf
+      !     if (ios.ne.0) then
+      !       write(6,9010)
+      !       stop
+      !     end if
+      !     read(linebuf,*) zn
+      !     write(ifti,130,advance='no') nor,znpiv+zn!nor+1+zn+znpiv
+
+      !   else if (linebuf(1:3).eq.'SUB') then
+      !     read(70, '(A24)', iostat=ios) linebuf
+      !     if (ios.ne.0) then
+      !       write(6,9010)
+      !       stop
+      !     end if
+      !     read(linebuf,*) nzn
+      !     do i=1,nzn
+      !       read(70, '(A24)', iostat=ios) linebuf
+      !       if (ios.ne.0) then
+      !         write(6,9010)
+      !         stop
+      !       end if
+      !       read(linebuf,*) zn
+      !       if (i.ne.(nzn-1)) then
+      !         write(ifti,130,advance='no') znpiv+zn !nor+1+zn+znpiv
+      !       else
+      !         write(ifti,130) nor+1+zn+znpiv
+      !       end if
+      !     end do
+      !   else if (linebuf(1:4).eq.'NEXT') then
+      !     nor=nor+1   
+      !   end if 
+      ! end do
+
+      do
+        read(70, '(A24)', iostat=ios) linebuf
+        if (ios.ne.0) then
+          write(6,9010)
+          stop
+        end if
+        
+        if (linebuf(1:3).eq.'END') then
+          exit
+        end if
+
+        if (linebuf(1:1).eq.'#') then
+          cycle
+        end if
+
+        write(ifti,fmt='(a)',advance='no') linebuf(1:2)
+      end do
+
+      !close(70)
+      rewind 70
+
+      ! if(phantom.eq.0) then
+      !   write(ifti,fmt='(a)',advance='no') " 5" !Ti
+      ! else if(phantom.eq.1) then
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      !   write(ifti,fmt='(a)',advance='no') " 6"
+      !   write(ifti,fmt='(a)',advance='no') " 5"
+      ! else if(phantom.eq.2) then
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      !   write(ifti,fmt='(a)',advance='no') " 3"
+      !   write(ifti,fmt='(a)',advance='no') " 7"
+      ! else if(phantom.eq.3) then
+      !   write(ifti,fmt='(a)',advance='no') " 3" !" 2" !back ground is Al
+      !   write(ifti,fmt='(a)',advance='no') " 3"
+      !   write(ifti,fmt='(a)',advance='no') " 6"
+      !   write(ifti,fmt='(a)',advance='no') " 5"
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      ! else if(phantom.eq.4) then
+      !   write(ifti,fmt='(a)',advance='no') " 2"
+      !   write(ifti,fmt='(a)',advance='no') " 2"!" 3"
+      !   write(ifti,fmt='(a)',advance='no') " 2"!" 4"
+      !   write(ifti,fmt='(a)',advance='no') " 2"!" 5"
+      !   write(ifti,fmt='(a)',advance='no') " 2"!" 6"
+      ! else if(phantom.eq.5 .or. phantom.eq.8) then
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      !   write(ifti,fmt='(a)',advance='no') " 2"
+      !   write(ifti,fmt='(a)',advance='no') " 5"
+      !   write(ifti,fmt='(a)',advance='no') " 7"
+      !   write(ifti,fmt='(a)',advance='no') " 9"
+      ! else if(phantom.eq.6) then
+      !   write(ifti,fmt='(a)',advance='no') " 6"
+      !   write(ifti,fmt='(a)',advance='no') " 5"
+      ! else if(phantom.eq.7) then
+      !   write(ifti,fmt='(a)',advance='no') " 6"
+      !   write(ifti,fmt='(a)',advance='no') " 2"
+      !   write(ifti,fmt='(a)',advance='no') " 3"
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      !   write(ifti,fmt='(a)',advance='no') " 5"
+      ! else if(phantom.eq.9) then
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      !   write(ifti,fmt='(a)',advance='no') " 4"
+      ! end if
 
 !SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
 
@@ -1132,6 +1374,10 @@
       !--------------------------------
       nreg=izonin
       !Read material for each region from egs5job.inp
+      ! print med(i), nreg
+      write(6,*) "med(1024): ", med(1024)
+      write(6,*) "med(1025): ", med(1025)
+
       read(ifti,*) (med(i),i=1,nreg)
       !Set option except vacuum region
       do i=1,nreg-1

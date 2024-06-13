@@ -1,0 +1,21 @@
+{
+    "materials": [
+        "CDTE.inp",
+        "AIR-AT-NTP.inp",
+        "AL.inp",
+        "C.inp",
+        "MG.inp",
+        "H2O.inp"
+    ],
+    "geometry": "four_rods.geom",
+    "source": "source150kv.csv",
+    "sod": 40,
+    "sdd": 80,
+    "pitch": 0.01,
+    "ttms": 1024,
+    "step": 4,
+    "hist": 1000,
+    "istp": 0,
+    "hstp": 4,
+    "beam": 1
+}

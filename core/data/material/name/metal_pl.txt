@@ -1,0 +1,9 @@
+CDTE                    
+AIR-AT-NTP              
+AL                      
+PMMA                    
+H2O                     
+PVC                     
+PLA                     
+C                       
+ABS                     
