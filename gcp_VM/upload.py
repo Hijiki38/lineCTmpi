@@ -16,9 +16,9 @@ file_path = args[1]  #入力ファイルのパス("/"まで)
 all_files = glob.glob(F'{file_path}*.csv')
 
 # #all_filesに "egs5job.log", "time.txt", "vmstat.txt"も追加
-# all_files.extend(glob.glob(F'{file_path}*.pic'))
-# all_files.extend(glob.glob(F'{file_path}*.log'))
-# all_files.extend(glob.glob(F'{file_path}*.txt'))
+all_files.extend(glob.glob(F'{file_path}*.pic'))
+all_files.extend(glob.glob(F'{file_path}*.log'))
+all_files.extend(glob.glob(F'{file_path}*.txt'))
 
 
 keyfile_path = p.keyfile_path
