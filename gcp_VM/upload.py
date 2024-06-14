@@ -2,7 +2,8 @@ from __future__ import print_function
 import os
 import glob
 import sys
-sys.path.append("../gcp_client/parameter")
+#sys.path.append("../gcp_client/parameter")
+sys.path.append("../gcp_client")
 import parameter as p
 
 from googleapiclient.discovery import build
