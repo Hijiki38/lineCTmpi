@@ -15,6 +15,12 @@ args = sys.argv      #引数を指定
 file_path = args[1]  #入力ファイルのパス("/"まで)
 all_files = glob.glob(F'{file_path}*.csv')
 
+# #all_filesに "egs5job.log", "time.txt", "vmstat.txt"も追加
+# all_files.extend(glob.glob(F'{file_path}*.pic'))
+# all_files.extend(glob.glob(F'{file_path}*.log'))
+# all_files.extend(glob.glob(F'{file_path}*.txt'))
+
+
 keyfile_path = p.keyfile_path
 share_drive_id = p.share_drive_id
 
@@ -36,6 +42,12 @@ def upload_basic():
         service = build('drive', 'v3', credentials=creds)
 
         for file_name in all_files:
+
+            #mime
+            if file_name.endswith(".csv"):
+                mime = 'text/csv'
+            else:
+                mime = 'text/plain'
             
             file_metadata = {
                 'name': os.path.basename(file_name),
@@ -43,7 +55,7 @@ def upload_basic():
             }
             
             media = MediaFileUpload(file_name,
-                                    mimetype='text/csv')
+                                    mimetype=mime)
             # pylint: disable=maybe-no-member
             file = service.files().create(body=file_metadata, media_body=media,
                                         fields='id', supportsAllDrives=True).execute()

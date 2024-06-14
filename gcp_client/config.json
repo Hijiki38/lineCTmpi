@@ -12,7 +12,7 @@
     "sdd": 80,
     "pitch": 0.01,
     "ttms": 512,
-    "step": 16,
+    "step": 8,
     "istp": 0,
     "xstp": 4,
     "hist": 1000,
