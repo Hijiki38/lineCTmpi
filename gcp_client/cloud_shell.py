@@ -62,12 +62,14 @@ class Instance:
         self.ready_count = ready_count
         self.par_istp = par_istp
         self.par_xstp = par_xstp
-        self.params_json = params_json
+        self.params_json = params_json.copy()
         # update params_json
         self.params_json["istp"] = self.par_istp
         self.params_json["hstp"] = self.par_istp + self.par_xstp
+        print(f"istp: {self.par_istp}, hstp: {self.par_istp + self.par_xstp}")
 
     async def __calculation(self):
+        print("self.params_json: ", self.params_json)
         calc_cmd = f"""gcloud compute ssh {user_name}@{self.instance} --zone={zone} --command='cd {calc_dir_path};
         echo {json.dumps(self.params_json)} > ./config/config.json;
         CLOUD_instance="{self.instance}";

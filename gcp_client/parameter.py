@@ -3,7 +3,7 @@ zone = 'us-central1-b'	# インスタンスグループを作成したZONE
 instance_group_name = 'linectmpi'	# インスタンスグループ名
 user_name = "takumi_h"   # インスタンスで作成した共有ユーザ名
 repository_name = "lineCTmpi" # git cloneしたリポジトリ名
-num_instance = 4	# 同時実行するインスタンス数
+num_instance = 2	# 同時実行するインスタンス数
 poling_timer = 10	# 処理待ち時の待機時間(sec)
 
 

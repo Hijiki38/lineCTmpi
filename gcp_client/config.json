@@ -12,9 +12,9 @@
     "sdd": 80,
     "pitch": 0.01,
     "ttms": 512,
-    "step": 4,
+    "step": 16,
     "istp": 0,
-    "xstp": 1,
+    "xstp": 4,
     "hist": 1000,
     "beam": 1
 }
