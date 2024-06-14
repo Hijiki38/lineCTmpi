@@ -1,5 +1,6 @@
 import subprocess
 import asyncio
+import json
 import parameter as p
 
 # GCP用パラメータ
@@ -9,17 +10,33 @@ user_name = p.user_name
 num_instance = p.num_instance 
 poling_timer = p.poling_timer 
 
-# 計算用パラメータ
-par_sod = p.par_sod
-par_sdd = p.par_sdd
-par_ptch = p.par_ptch
-par_ttms = p.par_ttms
-par_step = p.par_step
-par_hist = p.par_hist
-par_istp = p.par_istp
-par_xstp = p.par_xstp 
-par_pntm = p.par_pntm
-par_beam = p.par_beam
+config_json_path = p.config_json_path
+
+# 計算用パラメータ(jsonから読み込み)
+with open(config_json_path, 'r') as f:
+    params_json = json.load(f)
+
+par_sod = params_json["sod"]
+par_sdd = params_json["sdd"]
+par_ptch = params_json["pitch"]
+par_ttms = params_json["ttms"]
+par_step = params_json["step"]
+par_hist = params_json["hist"]
+par_istp = params_json["istp"]
+par_xstp = params_json["xstp"]
+par_beam = params_json["beam"]
+
+# # 計算用パラメータ
+# par_sod = p.par_sod
+# par_sdd = p.par_sdd
+# par_ptch = p.par_ptch
+# par_ttms = p.par_ttms
+# par_step = p.par_step
+# par_hist = p.par_hist
+# par_istp = p.par_istp
+# par_xstp = p.par_xstp 
+# par_pntm = p.par_pntm
+# par_beam = p.par_beam
 
 # ファイル操作用パラメータ
 calc_dir_path = p.calc_dir_path 
@@ -48,36 +65,53 @@ class Instance:
 
     async def __calculation(self):
         calc_cmd = f"""gcloud compute ssh {user_name}@{self.instance} --zone={zone} --command='cd {calc_dir_path};
+        echo {json.dumps(params_json)} > ./config/config.json;
         CLOUD_instance="{self.instance}";
         CLOUD_USER=$(gcloud config get-value account);
         CLOUD_IP=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip);
         N_CORE=$(grep -m 1 "cpu cores" /proc/cpuinfo | sed "s/^.*: //");
-        SOD="{par_sod}";
-        SDD="{par_sdd}";
-        PTCH="{par_ptch}";
-        TTMS="{par_ttms}";
-        STEP="{par_step}";
-        HIST="{par_hist}";
-        ISTP="{self.par_istp}";
-        HSTP="{self.par_istp + self.par_xstp}";
-        PNTM="{par_pntm}";
-        BEAM="{par_beam}";
+        CONFIGFILE="./config/config.json";
+        sed -i "s/CONFIGFILE=.*/CONFIGFILE=${{CONFIGFILE}}/" .env;
         sed -i "s/CLOUD_SHELL_INSTANCE_NAME=.*/CLOUD_SHELL_INSTANCE_NAME=${{CLOUD_INSTANCE}}/" .env;
         sed -i "s/CLOUD_SHELL_USERNAME=.*/CLOUD_SHELL_USERNAME=${{CLOUD_USER}}/" .env;
         sed -i "s/CLOUD_SHELL_IP=.*/CLOUD_SHELL_IP=${{CLOUD_IP}}/" .env;
         sed -i "s/NUM_CPU=.*/NUM_CPU=${{N_CORE}}/" .env;
-        sed -i "s/PAR_SOD=.*/PAR_SOD=${{SOD}}/" .env;
-        sed -i "s/PAR_SDD=.*/PAR_SDD=${{SDD}}/" .env;
-        sed -i "s/PAR_PTCH=.*/PAR_PTCH=${{PTCH}}/" .env;
-        sed -i "s/PAR_TTMS=.*/PAR_TTMS=${{TTMS}}/" .env;
-        sed -i "s/PAR_STEP=.*/PAR_STEP=${{STEP}}/" .env;
-        sed -i "s/PAR_HIST=.*/PAR_HIST=${{HIST}}/" .env;
-        sed -i "s/PAR_ISTP=.*/PAR_ISTP=${{ISTP}}/" .env;
-        sed -i "s/PAR_HSTP=.*/PAR_HSTP=${{HSTP}}/" .env;
-        sed -i "s/PAR_PNTM=.*/PAR_PNTM=${{PNTM}}/" .env;
-        sed -i "s/PAR_BEAM=.*/PAR_BEAM=${{BEAM}}/" .env;
         nohup docker-compose up > /dev/null 2>&1 &'"""
         return subprocess.run(calc_cmd, shell=True).returncode
+    
+    # async def __calculation(self):
+        # calc_cmd = f"""gcloud compute ssh {user_name}@{self.instance} --zone={zone} --command='cd {calc_dir_path};
+        # echo {json.dumps(params_json)} > ./config/config.json;
+        # CLOUD_instance="{self.instance}";
+        # CLOUD_USER=$(gcloud config get-value account);
+        # CLOUD_IP=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip);
+        # N_CORE=$(grep -m 1 "cpu cores" /proc/cpuinfo | sed "s/^.*: //");
+        # CONFIGFILE="./config/config.json";
+        # SOD="{par_sod}";
+        # SDD="{par_sdd}";
+        # PTCH="{par_ptch}";
+        # TTMS="{par_ttms}";
+        # STEP="{par_step}";
+        # HIST="{par_hist}";
+        # ISTP="{self.par_istp}";
+        # HSTP="{self.par_istp + self.par_xstp}";
+        # BEAM="{par_beam}";
+        # sed -i "s/CONFIGFILE=.*/CONFIGFILE=${{CONFIGFILE}}/" .env;
+        # sed -i "s/CLOUD_SHELL_INSTANCE_NAME=.*/CLOUD_SHELL_INSTANCE_NAME=${{CLOUD_INSTANCE}}/" .env;
+        # sed -i "s/CLOUD_SHELL_USERNAME=.*/CLOUD_SHELL_USERNAME=${{CLOUD_USER}}/" .env;
+        # sed -i "s/CLOUD_SHELL_IP=.*/CLOUD_SHELL_IP=${{CLOUD_IP}}/" .env;
+        # sed -i "s/NUM_CPU=.*/NUM_CPU=${{N_CORE}}/" .env;
+        # sed -i "s/PAR_SOD=.*/PAR_SOD=${{SOD}}/" .env;
+        # sed -i "s/PAR_SDD=.*/PAR_SDD=${{SDD}}/" .env;
+        # sed -i "s/PAR_PTCH=.*/PAR_PTCH=${{PTCH}}/" .env;
+        # sed -i "s/PAR_TTMS=.*/PAR_TTMS=${{TTMS}}/" .env;
+        # sed -i "s/PAR_STEP=.*/PAR_STEP=${{STEP}}/" .env;
+        # sed -i "s/PAR_HIST=.*/PAR_HIST=${{HIST}}/" .env;
+        # sed -i "s/PAR_ISTP=.*/PAR_ISTP=${{ISTP}}/" .env;
+        # sed -i "s/PAR_HSTP=.*/PAR_HSTP=${{HSTP}}/" .env;
+        # sed -i "s/PAR_BEAM=.*/PAR_BEAM=${{BEAM}}/" .env;
+        # nohup docker-compose up > /dev/null 2>&1 &'"""
+        # return subprocess.run(calc_cmd, shell=True).returncode
     
     async def __judge_calc_complete(self):
         judge_complete_cmd = f"gcloud compute ssh {user_name}@{self.instance} --zone={zone} --command='test -e {share_dir_path}done'"

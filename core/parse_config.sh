@@ -43,10 +43,10 @@ fi
 # また、geometryのファイルを読み込み、geometry.geomを作成する。
 # さらに、sourceのファイルを読み込み、source.csvを作成する。
 
-matinp_dir="./data/material/inp/"
+matinp_dir="./ctdata/material/inp/"
 #matname_dir="./data/material/name/"
-geom_dir="./data/geom/"
-source_dir="./data/source/"
+geom_dir="./ctdata/geom/"
+source_dir="./ctdata/source/"
 
 
 # materialsのファイルを読み込み、material.csvを作成する。
