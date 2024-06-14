@@ -62,10 +62,14 @@ class Instance:
         self.ready_count = ready_count
         self.par_istp = par_istp
         self.par_xstp = par_xstp
+        self.params_json = params_json
+        # update params_json
+        self.params_json["istp"] = self.par_istp
+        self.params_json["hstp"] = self.par_istp + self.par_xstp
 
     async def __calculation(self):
         calc_cmd = f"""gcloud compute ssh {user_name}@{self.instance} --zone={zone} --command='cd {calc_dir_path};
-        echo {json.dumps(params_json)} > ./config/config.json;
+        echo {json.dumps(self.params_json)} > ./config/config.json;
         CLOUD_instance="{self.instance}";
         CLOUD_USER=$(gcloud config get-value account);
         CLOUD_IP=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip);
@@ -163,11 +167,14 @@ async def main():
     processing_instances = []
     tasks = []
     for i, instance in enumerate(instance_list):
+        print(f"Instance {instance} is processing...")
 
         ready_count = i + 1
         processing_instances.append(Instance(instance))
         tasks.append(asyncio.create_task(processing_instances[i].run()))
         par_istp += par_xstp
+
+        print(f"istp: {par_istp}, hstp: {par_istp + par_xstp}")
         
     await asyncio.gather(*tasks)
 
