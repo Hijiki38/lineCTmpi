@@ -82,7 +82,8 @@ class Instance:
         sed -i "s/CLOUD_SHELL_USERNAME=.*/CLOUD_SHELL_USERNAME=${{CLOUD_USER}}/" .env;
         sed -i "s/CLOUD_SHELL_IP=.*/CLOUD_SHELL_IP=${{CLOUD_IP}}/" .env;
         sed -i "s/NUM_CPU=.*/NUM_CPU=${{N_CORE}}/" .env;
-        nohup docker-compose up > /dev/null 2>&1 &'"""
+        nohup docker-compose up > linect_log.txt 2>&1 &'"""
+        #nohup docker-compose up > /dev/null 2>&1 &'"""
         return subprocess.run(calc_cmd, shell=True).returncode
     
     # async def __calculation(self):
