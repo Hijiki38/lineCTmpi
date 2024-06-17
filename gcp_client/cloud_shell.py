@@ -63,6 +63,8 @@ class Instance:
         self.par_istp = par_istp
         self.par_xstp = par_xstp
         self.params_json = params_json.copy()
+        # print all params
+        print("self.params_json: ", json.dumps(self.params_json))
         # update params_json
         self.params_json["istp"] = self.par_istp
         self.params_json["hstp"] = self.par_istp + self.par_xstp
@@ -71,18 +73,21 @@ class Instance:
     async def __calculation(self):
         print("self.params_json: ", self.params_json)
         calc_cmd = f"""gcloud compute ssh {user_name}@{self.instance} --zone={zone} --command='cd {calc_dir_path};
-        echo {json.dumps(self.params_json)} > ./config/config.json;
+        mkdir -p {share_dir_path}/config;
+        echo {json.dumps(self.params_json)} > {share_dir_path}/config/config.json;
         CLOUD_instance="{self.instance}";
         CLOUD_USER=$(gcloud config get-value account);
         CLOUD_IP=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip);
         N_CORE=$(grep -m 1 "cpu cores" /proc/cpuinfo | sed "s/^.*: //");
-        CONFIGFILE="./config/config.json";
-        sed -i "s/CONFIGFILE=.*/CONFIGFILE=${{CONFIGFILE}}/" .env;
-        sed -i "s/CLOUD_SHELL_INSTANCE_NAME=.*/CLOUD_SHELL_INSTANCE_NAME=${{CLOUD_INSTANCE}}/" .env;
-        sed -i "s/CLOUD_SHELL_USERNAME=.*/CLOUD_SHELL_USERNAME=${{CLOUD_USER}}/" .env;
-        sed -i "s/CLOUD_SHELL_IP=.*/CLOUD_SHELL_IP=${{CLOUD_IP}}/" .env;
-        sed -i "s/NUM_CPU=.*/NUM_CPU=${{N_CORE}}/" .env;
-        nohup docker-compose up > linect_log.txt 2>&1 &'"""
+        CONFIG_FILE="./share/config/config.json";
+        cat .env > ./share/env_init.txt;
+        sed -i "s|CONFIGFILE=.*|CONFIGFILE=${{CONFIG_FILE}}|" .env;
+        sed -i "s|CLOUD_SHELL_INSTANCE_NAME=.*|CLOUD_SHELL_INSTANCE_NAME=${{CLOUD_INSTANCE}}|" .env;
+        sed -i "s|CLOUD_SHELL_USERNAME=.*|CLOUD_SHELL_USERNAME=${{CLOUD_USER}}|" .env;
+        sed -i "s|CLOUD_SHELL_IP=.*|CLOUD_SHELL_IP=${{CLOUD_IP}}|" .env;
+        sed -i "s|NUM_CPU=.*|NUM_CPU=${{N_CORE}}|" .env;
+        cat .env > ./share/env.txt;
+        nohup docker-compose up > ./share/linect_log.txt 2>&1 &'"""
         #nohup docker-compose up > /dev/null 2>&1 &'"""
         return subprocess.run(calc_cmd, shell=True).returncode
     

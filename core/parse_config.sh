@@ -48,6 +48,8 @@ matinp_dir="./ctdata/material/inp/"
 geom_dir="./ctdata/geom/"
 source_dir="./ctdata/source/"
 
+# show the first argument
+echo $1
 
 # materialsのファイルを読み込み、material.csvを作成する。
 materials=$(jq -r '.materials[]' $1)
