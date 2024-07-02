@@ -13,13 +13,7 @@ RUN yum -y install epel-release \
     && yum -y install jq
 
 COPY . /app
-RUN cd /app
-
-RUN yum -y install git
-# pull to get the latest version of the repository
-RUN git pull origin takh_dev
-
-RUN chmod -R 777 .
+RUN cd /app && chmod -R 777 .
 
 RUN useradd -s /bin/bash user \
     && usermod -aG wheel user
