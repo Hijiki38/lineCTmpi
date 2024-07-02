@@ -17,6 +17,9 @@ RUN cd /app && chmod -R 777 .
 
 RUN useradd -s /bin/bash user \
     && usermod -aG wheel user
+
+RUN yum -y install git
+
 USER user
 WORKDIR /app
 
