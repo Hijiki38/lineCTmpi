@@ -3,6 +3,10 @@
 # vmstat コマンドの出力をファイルにリダイレクト
 vmstat 10 > $PAR_PATH/vmstat.log &
 
+# gitリポジトリを最新に更新
+cd /app
+git pull origin takh_dev
+
 # .bashrc に環境変数を追加
 echo PATH=/opt/openMPI/bin:$PATH >> ~/.bashrc
 echo LD_LIBRARY_PATH=/opt/openMPI/lib:$LD_LIBRARY_PATH >> ~/.bashrc
