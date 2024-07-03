@@ -5,7 +5,7 @@ vmstat 10 > $PAR_PATH/vmstat.log &
 
 # gitリポジトリを最新に更新
 cd /app
-git pull origin takh_dev
+#git pull origin takh_dev
 
 # .bashrc に環境変数を追加
 echo PATH=/opt/openMPI/bin:$PATH >> ~/.bashrc
@@ -15,6 +15,9 @@ echo export PATH LD_LIBRARY_PATH MANPATH >> ~/.bashrc
 
 # .bashrc を再読み込み
 . ~/.bashrc
+
+# /app/share内の.geomファイルを/app/ctdata/geomに移動
+mv /app/share/*.geom /app/ctdata/geom
 
 # parse_config.sh を実行
 ./parse_config.sh $CONFIGFILE
