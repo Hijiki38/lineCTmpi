@@ -18,6 +18,7 @@ echo export PATH LD_LIBRARY_PATH MANPATH >> ~/.bashrc
 
 # /app/share内の.geomファイルを/app/ctdata/geomに移動
 mv /app/share/*.geom /app/ctdata/geom
+mv /app/share/*.inp /app/ctdata/material/inp
 
 # parse_config.sh を実行
 ./parse_config.sh $CONFIGFILE
