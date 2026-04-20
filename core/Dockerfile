@@ -1,23 +1,28 @@
 #syntax=docker/dockerfile:1
-FROM sl:7
+FROM rockylinux:8
 ARG cpus=1
 COPY . /app
-RUN cd app \
-    && yum -y install gcc-gfortran.x86_64 \
-    && yum -y install gcc-c++ \
-    && yum -y install wget \
-    && yum -y install perl \
-    && yum -y install make \
-    && yum -y install sudo
+RUN dnf -y update \
+    && dnf -y install \
+        gcc-gfortran \
+        gcc-c++ \
+        wget \
+        perl \
+        make \
+        sudo \
+        procps-ng \
+        tar \
+        gzip \
+    && dnf clean all
 RUN chmod -R 777 /app \
     && chmod -R 777 /app/share
 RUN wget https://www.open-mpi.org/software/ompi/v4.0/downloads/openmpi-4.0.7.tar.gz --no-check-certificate \
     && tar xvf openmpi-4.0.7.tar.gz
 RUN cd openmpi-4.0.7 \
-    && mkdir /opt/openMPI \
+    && mkdir -p /opt/openMPI \
     && ./configure --prefix=/opt/openMPI CC=gcc CXX=g++ F77=gfortran FC=gfortran \
-    && make -j \
-    && make -j install
+    && make -j"${cpus}" \
+    && make -j"${cpus}" install
 #以下のパス設定はコンテナに反映されておらず、.ymlで同じことをしているため不要かもしれない
 #RUN echo PATH=/opt/openMPI/bin:\$PATH >> ~/.bashrc \ 
 #    && echo LD_LIBRARY_PATH=/opt/openMPI/lib:\$LD_LIBRARY_PATH >> ~/.bashrc \
