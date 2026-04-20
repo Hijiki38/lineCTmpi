@@ -62,6 +62,20 @@
       integer,parameter :: maxtrans = 4096 !150 !max translation times
       integer,parameter :: maxspec = 18000  !max row of source.csv
       integer,parameter :: maxparam = 10
+      integer,parameter :: GEOM_RPP = 1
+      integer,parameter :: GEOM_RCC = 2
+      integer,parameter :: GEOM_BOX = 6
+      integer,parameter :: GEOM_END = 15
+      integer,parameter :: PHANTOM_ONION = 0
+      integer,parameter :: PHANTOM_TISSUE = 1
+      integer,parameter :: PHANTOM_METAL = 2
+      integer,parameter :: PHANTOM_FOUR_METAL = 3
+      integer,parameter :: PHANTOM_FOUR_METAL_TEST = 4
+      integer,parameter :: PHANTOM_FOUR_TISSUES = 5
+      integer,parameter :: PHANTOM_SMALL = 6
+      integer,parameter :: PHANTOM_SMALL_FOUR = 7
+      integer,parameter :: PHANTOM_SQUARE = 8
+      integer,parameter :: PHANTOM_SQUARE2 = 9
 
       common/totals/depe(4096),deltae,maxpict,transi
       real*8 depe,deltae,spec
@@ -151,7 +165,11 @@
       ifto_original=39    ! Output unit number for pictfile
       ifto_dummy=41   !Output unit number for dummy pictfile
       apch=1     ! Initialization of apch
-      phantom=1  ! Phantom Type (0:Onion, 1:Tissue, 2:Metal, 3:FourMetal, 4:FourMetalTest(wo/Ni), 5:FourTissues, 6:small, 7:smallfour)
+      phantom=PHANTOM_TISSUE
+!     Phantom Type:
+!     0:Onion, 1:Tissue, 2:Metal, 3:FourMetal,
+!     4:FourMetalTest(wo/Ni), 5:FourTissues,
+!     6:small, 7:smallfour, 8:square, 9:square2
       beam=1     ! Beam Type (0:Parallel, 1:Fan)
       savepath="share" ! Path for output
 !-----------------------------------------------------------------------
@@ -268,7 +286,8 @@
       npr=npr+1
       phantom = parameters(npr)
       npr=npr+1
-      if(phantom.lt.0 .or. phantom.gt.10) then
+      if(phantom.lt.PHANTOM_ONION .or.
+     *   phantom.gt.PHANTOM_SQUARE2) then
         write(6,*) "phantom number you entered is not defined"
       end if
       beam = parameters(npr)
@@ -318,11 +337,7 @@
       write(6,*) "pegs5-call"
       flush(6)
 
-      if(phantom.eq.9) then
-        nmed=9
-      else
-        nmed=7
-      end if
+      call configure_media_table(phantom,nmed,medarr,chard)
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -335,75 +350,11 @@
       call block_set                 ! Initialize some general variables
 !     ==============
 
-!      medarr(1)='CDTE                    '
-!      medarr(2)='AIR-AT-NTP              '
-!      medarr(3)='AL                      '
-!      medarr(4)='PMMA                    '
-!      medarr(5)='H2O                     '
-!      medarr(6)='PVC                     '
-!      medarr(7)='TI                      '
-!      medarr(8)='C                       '
-!      medarr(9)='NI                      '
-
-	    if (phantom.eq.3 .or. phantom.eq.4) then
-        medarr(1)='CDTE                    '
-        medarr(2)='AIR-AT-NTP              '
-        medarr(3)='AL                      '
-        medarr(4)='CU                      '
-        medarr(5)='TI                      '
-        medarr(6)='C                       '
-        medarr(7)='H2O                     '
-	    end if
-
-      !medarr(1)='CDTE                    '
-      !medarr(2)='AIR-AT-NTP              '
-      !medarr(3)='I1                      '
-      !medarr(4)='I2                      '
-      !medarr(5)='I3                      '
-      !medarr(6)='H2O                     '
-
-
-      if (phantom.eq.5 .or. phantom.eq.8 .or. phantom.eq.9) then
-        medarr(1)='CDTE                    '
-        medarr(2)='AIR-AT-NTP              '
-        medarr(3)='AL                      '
-        medarr(4)='PMMA                    '
-        medarr(5)='H2O                     '
-        medarr(6)='PVC                     '
-        medarr(7)='PLA                     '
-        medarr(8)='C                       '
-        medarr(9)='ABS                     '
-      end if
-
       do j=1,nmed
         do i=1,24
           media(i,j)=medarr(j)(i:i)
         end do
       end do
-
-      if(phantom.eq.9) then
-        chard(1) = 0.01d0
-        chard(2) = 0.05d0
-        chard(3) = 0.05d0
-        chard(4) = 0.0005d0
-        chard(5) = 0.05d0
-        chard(6) = 0.05d0
-        chard(7) = 0.05d0
-        chard(8) = 0.05d0
-        chard(9) = 0.05d0
-        !chard(10) = 0.1d0
-      else
-        chard(1) = 0.01d0
-        chard(2) = 0.05d0
-        chard(3) = 0.05d0
-        chard(4) = 0.05d0
-        chard(5) = 0.05d0
-        chard(6) = 0.05d0
-        chard(7) = 0.05d0
-        !chard(8) = 0.05d0
-        !chard(9) = 0.05d0
-        !chard(10) = 0.1d0
-      endif
 
       write(6,fmt="('chard =',5e12.5)") (chard(j),j=1,nmed)
       flush(6)
@@ -500,616 +451,20 @@
       nor=1
 
 
-!110   FORMAT(a, i4, 12e12.6e2)
-!-----------------------------------------------
-!Detector Region(SUM)[geomkind is BOX]
-!-----------------------------------------------
-      ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2)*cos(csrad)
-      ctgeom(2,cti)=-cty/2
-      ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2)*sin(csrad)
-      ctgeom(4,cti)=-ctx*cos(csrad)*translation_times
-      ctgeom(5,cti)=0.0e0
-      ctgeom(6,cti)=ctx*sin(csrad)*translation_times
-      ctgeom(7,cti)=0.0e0
-      ctgeom(8,cti)=cty
-      ctgeom(9,cti)=0.0e0
-      ctgeom(10,cti)=ctz*sin(csrad)
-      ctgeom(11,cti)=0.0e0
-      ctgeom(12,cti)=ctz*cos(csrad)
-      write(ifti,*) geomkind(6),cti,(ctgeom(cto,cti),cto=1,12)
-      cti=cti+1
+      call write_detector_geometry(ifti,cti,geomkind,ctgeom,
+     *  ctdisd,htl,ctx,cty,ctz,translation_times,xl,zl,
+     *  csrad,halfosl)
 
-!-----------------------------------------------
-!Detector Region(8 MODULEs)[geomkind is BOX]
-!-----------------------------------------------
+      call write_phantom_geometry(phantom,ifti,cti,geomkind,
+     *  ctgeom,nos)
 
-      !do transi=0,translation_times-1,translation_times/8
-      !  ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2)*cos(csrad)-transi*xl
-      !  ctgeom(2,cti)=-cty/2
-      !  ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2)*sin(csrad)+transi*zl
-      !  ctgeom(4,cti)=-ctx*cos(csrad)*translation_times/8
-      !  ctgeom(5,cti)=0.0e0
-      !  ctgeom(6,cti)=ctx*sin(csrad)*translation_times/8
-      !  ctgeom(7,cti)=0.0e0
-      !  ctgeom(8,cti)=cty
-      !  ctgeom(9,cti)=0.0e0
-      !  ctgeom(10,cti)=ctz*sin(csrad)
-      !  ctgeom(11,cti)=0.0e0
-      !  ctgeom(12,cti)=ctz*cos(csrad)
-      !  write(ifti,*) geomkind(6),cti,(ctgeom(cto,cti),cto=1,12)
-      !  cti=cti+1
-      !end do
+      call add_rpp(ifti,cti,geomkind,ctgeom,-(halfosl+1.0d0),
+     *  halfosl+1.0d0,-(halfosl+1.0d0),halfosl+1.0d0,
+     *  -(halfosl+1.0d0),halfosl+1.0d0)
+      write(ifti,*) geomkind(GEOM_END)
 
-!-----------------------------------------------
-!Detector Region[geomkind is BOX]
-!-----------------------------------------------
-      do transi=0,translation_times-1
-        ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2)*cos(csrad)-transi*xl
-        !ctgeom(1,cti)=ctdisd*sin(csrad)+(htl+ctx/2-transi*xl)*cos(csrad)
-        ctgeom(2,cti)=-cty/2
-        ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2)*sin(csrad)+transi*zl
-        !ctgeom(3,cti)=ctdisd*cos(csrad)-(htl+ctx/2-transi*xl)*sin(csrad)
-        ctgeom(4,cti)=-ctx*cos(csrad)
-        ctgeom(5,cti)=0.0e0
-        ctgeom(6,cti)=ctx*sin(csrad)
-        ctgeom(7,cti)=0.0e0
-        ctgeom(8,cti)=cty
-        ctgeom(9,cti)=0.0e0
-        ctgeom(10,cti)=ctz*sin(csrad)
-        ctgeom(11,cti)=0.0e0
-        ctgeom(12,cti)=ctz*cos(csrad)
-        write(ifti,*) geomkind(6),cti,(ctgeom(cto,cti),cto=1,12)
-        cti=cti+1
-      end do
-!-----------------------------------------------
-!Air Zone[geomkind is RPP]
-!-----------------------------------------------
-        do ctp=1,6
-          ctgeom(ctp,cti)=halfosl*(-1)**ctp
-        end do
-      write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-      cti=cti+1
-
-!SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1
-!-----------------------------------------------
-!Colimator Region[geomkind is RCC and so on..]
-!-----------------------------------------------
-!Making PB collimator
-      ! ctgeom(1,cti)=(ctdis-1.5e0)*sin(csrad)+htl*cos(csrad)-transi*xl
-      ! ctgeom(2,cti)=0.0e0
-      ! ctgeom(3,cti)=(ctdis-1.5e0)*cos(csrad)-htl*sin(csrad)+transi*zl
-      ! ctgeom(4,cti)=0.5e0*sin(csrad)
-      ! ctgeom(5,cti)=0.0e0
-      ! ctgeom(6,cti)=0.5e0*cos(csrad)
-      ! ctgeom(7,cti)=1.389e0
-      !   write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-      ! cti=cti+1
-      ! nos=nos+1
-      ! ctgeom(1,cti)=(ctdis-1.5e0)*sin(csrad)+htl*cos(csrad)-transi*xl
-      ! ctgeom(2,cti)=0.0e0
-      ! ctgeom(3,cti)=(ctdis-1.5e0)*cos(csrad)-htl*sin(csrad)+transi*zl
-      ! ctgeom(4,cti)=0.5e0*sin(csrad)
-      ! ctgeom(5,cti)=0.0e0
-      ! ctgeom(6,cti)=0.5e0*cos(csrad)
-      ! ctgeom(7,cti)=0.06e0
-      !   write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-      ! cti=cti+1
-      ! nos=nos+1
-      ! ctgeom(1,cti)=(ctdis-1.0e0)*sin(csrad)+htl*cos(csrad)-transi*xl
-      ! ctgeom(2,cti)=0.0e0
-      ! ctgeom(3,cti)=(ctdis-1.0e0)*cos(csrad)-htl*sin(csrad)+transi*zl
-      ! ctgeom(4,cti)=1.5e0*sin(csrad)
-      ! ctgeom(5,cti)=0.0e0
-      ! ctgeom(6,cti)=1.5e0*cos(csrad)
-      ! ctgeom(7,cti)=1.389e0
-      !   write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-      ! cti=cti+1
-      ! nos=nos+1
-      ! ctgeom(1,cti)=(ctdis-1.0e0)*sin(csrad)+htl*cos(csrad)-transi*xl
-      ! ctgeom(2,cti)=0.0e0
-      ! ctgeom(3,cti)=(ctdis-1.0e0)*cos(csrad)-htl*sin(csrad)+transi*zl
-      ! ctgeom(4,cti)=1.5e0*sin(csrad)
-      ! ctgeom(5,cti)=0.0e0
-      ! ctgeom(6,cti)=1.5e0*cos(csrad)
-      ! ctgeom(7,cti)=0.889e0
-      !   write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-      ! cti=cti+1
-      ! nos=nos+1
-
-!-----------------------------------------------
-!Sample Region[geomkind is RCC and so on..]
-!-----------------------------------------------
-! If you want to modify the geometry of the sample, change this part.
-
-! ---- "Single rod Phantom" ----
-      if(phantom.eq.0) then
-        ctgeom(1,cti)=0.0e0 !ph1
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.15e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
-
-! ---- "Two rods Phantom" ----
-      if(phantom.eq.1 .or. phantom.eq.2) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=1.0e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.5e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.5e0
-        ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.5e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
-
-      ! ---- "Four rods Phantom" ----
-      if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=1.0e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.5e0 !ph1
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.15e0
-        !ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph2
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.5e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.15e0
-        !ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.5e0 !ph3
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.15e0
-        !ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph4
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=-0.5e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.15e0
-        !ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
-
-      ! ---- "Single rod Phantom small" ----
-      if(phantom.eq.6) then
-        ctgeom(1,cti)=0.0e0 
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph1
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.075e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
-
-      ! ---- "Four rods Phantom small" ----
-      if(phantom.eq.7) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.25e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.125e0 !ph1
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.05e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph2
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.125e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.05e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.125e0 !ph3
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.05e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.0e0 !ph4
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=-0.125e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ! ctgeom(7,cti)=0.15e0
-        ctgeom(7,cti)=0.05e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-      end if
-
-      ! ---- "Four rods Phantom square" ----
-      if(phantom.eq.8) then
-        ctgeom(1,cti)=0.0e0
-        ctgeom(2,cti)=-0.75e0
-        ctgeom(3,cti)=0.0e0
-        ctgeom(4,cti)=0.0e0
-        ctgeom(5,cti)=1.5e0
-        ctgeom(6,cti)=0.0e0
-        ctgeom(7,cti)=0.7e0 !radius
-          write(ifti,*) geomkind(2),cti,(ctgeom(cto,cti),cto=1,7)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.1e0 !ph1
-        ctgeom(2,cti)=0.5e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=-0.1e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=0.1e0 !ph2
-        ctgeom(2,cti)=0.5e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=0.1e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.5e0 !ph3
-        ctgeom(2,cti)=-0.1e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=0.1e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.5e0 !ph4
-        ctgeom(2,cti)=-0.1e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=-0.1e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-      end if
-
-      ! ---- "Four rods Phantom square2" ----
-      if(phantom.eq.9) then
-        ctgeom(1,cti)=-0.15e0 !ph1
-        ctgeom(2,cti)=0.35e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=0.0e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.25e0 !ph2
-        ctgeom(2,cti)=-0.20e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.325e0 !ph3
-        ctgeom(2,cti)=-0.300e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-        ctgeom(1,cti)=-0.4125e0 !ph4
-        ctgeom(2,cti)=-0.4000e0
-        ctgeom(3,cti)=-0.75e0
-        ctgeom(4,cti)=0.75e0
-        ctgeom(5,cti)=-0.4e0
-        ctgeom(6,cti)=0.4e0
-          write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-        cti=cti+1
-        nos=nos+1
-      end if
-
-!SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1SAMPLE1
-
-
-!-----------------------------------------------
-!End Zone[geomkind is RPP]
-!-----------------------------------------------
-        do ctp=1,6
-          ctgeom(ctp,cti)=(halfosl+1.0d0)*(-1)**ctp
-        end do
-      write(ifti,*) geomkind(1),cti,(ctgeom(cto,cti),cto=1,6)
-      write(ifti,*) geomkind(15)
-
-!-----------------------------------------------
-!Definition of Detector Zone
-!-----------------------------------------------
-120   FORMAT('Z',I0.4,' +',I0)
-
-      do transi=0,translation_times-1
-        write(ifti,120) nor,nor+1 ! Z0001  +2
-        nor=nor+1
-      end do
-!SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
-!-----------------------------------------------
-!Definition of Air, Collimator and Sample Zone
-!-----------------------------------------------
-130   FORMAT('Z',I0.4,' +',I0)
-140   FORMAT(' -',I0)
-      write(ifti,130,advance='no') nor,nor+1 ! Z0513  +514  -1 -515
-      !do transi=0,translation_times-1 !subtract detector zones
-      !  write(ifti,140, advance='no') transi+1 ! 
-      !end do
-
-      write(ifti,140,advance='no') 1 !subtract detector zone
-      if(phantom.eq.9) then
-        write(ifti,140,advance='no') nor+2 !subtract sample zone
-        write(ifti,140,advance='no') nor+3
-        write(ifti,140,advance='no') nor+4
-        write(ifti,140) nor+5
-      else
-        write(ifti,140) nor+2 !subtract sample zone
-      end if
-      nor=nor+1
-
-      if(phantom.eq.0) then
-	     write(ifti,130) nor,nor+1
-	     nor=nor+1
-      else if(phantom.eq.6) then
-        write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
-        write(ifti,140) nor+2  !subtract rod 1
-
-        nor=nor+1
-
-        write(ifti,130) nor,nor+1 !rod1  Z0515 +516
-        nor=nor+1
-      else if(phantom.eq.9) then
-        write(ifti,130) nor,nor+1 !rod 1
-        nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 2
-        nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 3
-        nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 4
-        nor=nor+1
-      else
-        write(ifti,130,advance='no') nor,nor+1 !sample zone  Z0514  +515 -516 -517 -518 -519
-        write(ifti,140,advance='no') nor+2  !subtract rod 1
-        write(ifti,140,advance='no') nor+3 !subtract rod 2
-        write(ifti,140,advance='no') nor+4 !subtract rod 3
-        write(ifti,140) nor+5 !subtract rod 4
-
-        nor=nor+1
-
-        write(ifti,130) nor,nor+1 !rod1  Z0515 +516
-        nor=nor+1
-        write(ifti,130) nor,nor+1
-        nor=nor+1
-        !if(phantom.eq.3 .or. phantom.eq.4 .or. phantom.eq.5 .or. phantom.eq.7) then
-        write(ifti,130) nor,nor+1 !rod 3
-        nor=nor+1
-        write(ifti,130) nor,nor+1 !rod 4
-        nor=nor+1
-        !end if
-      end if
-!SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2SAMPLE2
-
-
-!-----------------------------------------------
-!Definition of End Zone
-!-----------------------------------------------
-150   FORMAT('Z',I0.4,' +',I0' -',I0)
-      write(ifti,150) nor,nor+1,translation_times+2  !Z0519 +520 -514
-      write(ifti,*) geomkind(15)
-
-!-----------------------------------------------
-!Media number of Detector Zone
-!-----------------------------------------------
-
-      do transi=0,translation_times-1
-        write(ifti,fmt='(a)',advance='no') " 1"
-      end do
-
-!SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
-!-----------------------------------------------
-!Media number of Air
-!-----------------------------------------------
-      write(ifti,fmt='(a)',advance='no') " 2"
-
-!-----------------------------------------------
-!Media number of the Collimator
-!-----------------------------------------------
-      ! write(ifti,fmt='(a)',advance='no') " 5"
-      ! write(ifti,fmt='(a)',advance='no') " 2"
-      ! write(ifti,fmt='(a)',advance='no') " 5"
-      ! write(ifti,fmt='(a)',advance='no') " 2"
-
-!-----------------------------------------------
-!Media number of the Sample
-!-----------------------------------------------
-
-      if(phantom.eq.0) then
-        write(ifti,fmt='(a)',advance='no') " 5" !Ti
-      else if(phantom.eq.1) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 5"
-      else if(phantom.eq.2) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 7"
-      else if(phantom.eq.3) then
-        write(ifti,fmt='(a)',advance='no') " 3" !" 2" !back ground is Al
-        write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 5"
-        write(ifti,fmt='(a)',advance='no') " 4"
-      else if(phantom.eq.4) then
-        write(ifti,fmt='(a)',advance='no') " 2"
-        write(ifti,fmt='(a)',advance='no') " 2"!" 3"
-        write(ifti,fmt='(a)',advance='no') " 2"!" 4"
-        write(ifti,fmt='(a)',advance='no') " 2"!" 5"
-        write(ifti,fmt='(a)',advance='no') " 2"!" 6"
-      else if(phantom.eq.5 .or. phantom.eq.8) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 2"
-        write(ifti,fmt='(a)',advance='no') " 5"
-        write(ifti,fmt='(a)',advance='no') " 7"
-        write(ifti,fmt='(a)',advance='no') " 9"
-      else if(phantom.eq.6) then
-        write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 5"
-      else if(phantom.eq.7) then
-        write(ifti,fmt='(a)',advance='no') " 6"
-        write(ifti,fmt='(a)',advance='no') " 2"
-        write(ifti,fmt='(a)',advance='no') " 3"
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 5"
-      else if(phantom.eq.9) then
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 4"
-        write(ifti,fmt='(a)',advance='no') " 4"
-      end if
-
-!SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3SAMPLE3
-
-      !medarr(1)='CDTE                    '
-      !medarr(2)='AIR-AT-NTP              '
-      !medarr(3)='I1                      '
-      !medarr(4)='I2                      '
-      !medarr(5)='I3                      '
-      !medarr(6)='H2O                     '
-
-      !medarr(1)='CDTE                    '
-      !medarr(2)='AIR-AT-NTP              '
-      !medarr(3)='AL                      '
-      !medarr(4)='PMMA                    '
-      !medarr(5)='H2O                     '
-      !medarr(6)='PVC                     '
-      !medarr(7)='TI                      '
-      !medarr(8)='C                       '
-      !medarr(9)='NI                      '
-      !
-      !! FOUR TISSUES
-      ! medarr(1)='CDTE                    '
-      ! medarr(2)='AIR-AT-NTP              '
-      ! medarr(3)='AL                      '
-      ! medarr(4)='PMMA                    '
-      ! medarr(5)='H2O                     '
-      ! medarr(6)='PVC                     '
-      ! medarr(7)='PLA                     '
-      ! medarr(8)='C                       '
-      ! medarr(9)='ABS                     '
-
-      !!FOUR Metal
-      ! medarr(1)='CDTE                    '
-      ! medarr(2)='AIR-AT-NTP              '
-      ! medarr(3)='AL                      '
-      ! medarr(4)='CU                      '
-      ! medarr(5)='TI                      '
-      ! medarr(6)='C                       '
-      ! medarr(7)='H2O                     '
-
-!-----------------------------------------------
-!Media number of End Zone
-!-----------------------------------------------
-      write(ifti,*) "0"
+      call write_zone_definitions(ifti,phantom,translation_times,nor)
+      call write_media_assignment(ifti,phantom,translation_times)
       close(unit=ifti)
 
 !-----------------------------------------------------------
@@ -1426,6 +781,543 @@
       stop
       end
 !-------------------------last line of main code------------------------
+!-------------------------geometry helper code--------------------------
+
+      subroutine configure_media_table(phantom,nmed,medarr,chard)
+      implicit none
+      integer phantom,nmed,i
+      integer,parameter :: PHANTOM_FOUR_METAL = 3
+      integer,parameter :: PHANTOM_FOUR_METAL_TEST = 4
+      integer,parameter :: PHANTOM_FOUR_TISSUES = 5
+      integer,parameter :: PHANTOM_SQUARE = 8
+      integer,parameter :: PHANTOM_SQUARE2 = 9
+      character*24 medarr(*)
+      real*8 chard(*)
+
+      do i=1,9
+        medarr(i)='                        '
+        chard(i)=0.05d0
+      end do
+
+      medarr(1)='CDTE                    '
+      medarr(2)='AIR-AT-NTP              '
+
+      if(phantom.eq.PHANTOM_FOUR_METAL .or.
+     *   phantom.eq.PHANTOM_FOUR_METAL_TEST) then
+        nmed=7
+        medarr(3)='AL                      '
+        medarr(4)='CU                      '
+        medarr(5)='TI                      '
+        medarr(6)='C                       '
+        medarr(7)='H2O                     '
+      else if(phantom.eq.PHANTOM_FOUR_TISSUES .or.
+     *        phantom.eq.PHANTOM_SQUARE .or.
+     *        phantom.eq.PHANTOM_SQUARE2) then
+        nmed=9
+        medarr(3)='AL                      '
+        medarr(4)='PMMA                    '
+        medarr(5)='H2O                     '
+        medarr(6)='PVC                     '
+        medarr(7)='PLA                     '
+        medarr(8)='C                       '
+        medarr(9)='ABS                     '
+      else
+        nmed=7
+        medarr(3)='AL                      '
+        medarr(4)='PMMA                    '
+        medarr(5)='H2O                     '
+        medarr(6)='PVC                     '
+        medarr(7)='TI                      '
+      end if
+
+      chard(1)=0.01d0
+      if(phantom.eq.PHANTOM_SQUARE2) then
+        chard(4)=0.0005d0
+      end if
+
+      return
+      end
+
+      subroutine write_detector_geometry(ifti,cti,geomkind,ctgeom,
+     * ctdisd,htl,ctx,cty,ctz,translation_times,xl,zl,
+     * csrad,halfosl)
+      implicit none
+      integer ifti,cti,translation_times,transi
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 ctdisd,htl,ctx,cty,ctz,xl,zl,csrad,halfosl
+
+      call add_box(ifti,cti,geomkind,ctgeom,
+     *  ctdisd*sin(csrad)+(htl+ctx/2.d0)*cos(csrad),
+     *  -cty/2.d0,
+     *  ctdisd*cos(csrad)-(htl+ctx/2.d0)*sin(csrad),
+     *  -ctx*cos(csrad)*translation_times,
+     *  0.d0,
+     *  ctx*sin(csrad)*translation_times,
+     *  0.d0,cty,0.d0,ctz*sin(csrad),0.d0,ctz*cos(csrad))
+
+      do transi=0,translation_times-1
+        call add_box(ifti,cti,geomkind,ctgeom,
+     *   ctdisd*sin(csrad)+(htl+ctx/2.d0)*cos(csrad)-transi*xl,
+     *   -cty/2.d0,
+     *   ctdisd*cos(csrad)-(htl+ctx/2.d0)*sin(csrad)+transi*zl,
+     *   -ctx*cos(csrad),0.d0,ctx*sin(csrad),
+     *   0.d0,cty,0.d0,ctz*sin(csrad),0.d0,ctz*cos(csrad))
+      end do
+
+      call add_rpp(ifti,cti,geomkind,ctgeom,-halfosl,halfosl,
+     * -halfosl,halfosl,-halfosl,halfosl)
+
+      return
+      end
+
+      subroutine write_phantom_geometry(phantom,ifti,cti,geomkind,
+     * ctgeom,nos)
+      implicit none
+      integer phantom,ifti,cti,nos
+      integer,parameter :: PHANTOM_ONION = 0
+      integer,parameter :: PHANTOM_TISSUE = 1
+      integer,parameter :: PHANTOM_METAL = 2
+      integer,parameter :: PHANTOM_FOUR_METAL = 3
+      integer,parameter :: PHANTOM_FOUR_METAL_TEST = 4
+      integer,parameter :: PHANTOM_FOUR_TISSUES = 5
+      integer,parameter :: PHANTOM_SMALL = 6
+      integer,parameter :: PHANTOM_SMALL_FOUR = 7
+      integer,parameter :: PHANTOM_SQUARE = 8
+      integer,parameter :: PHANTOM_SQUARE2 = 9
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+
+      if(phantom.eq.PHANTOM_ONION) then
+        call build_single_rod_phantom(ifti,cti,geomkind,ctgeom,nos)
+      else if(phantom.eq.PHANTOM_TISSUE .or.
+     *        phantom.eq.PHANTOM_METAL) then
+        call build_two_rods_phantom(ifti,cti,geomkind,ctgeom,nos)
+      else if(phantom.eq.PHANTOM_FOUR_METAL .or.
+     *        phantom.eq.PHANTOM_FOUR_METAL_TEST .or.
+     *        phantom.eq.PHANTOM_FOUR_TISSUES) then
+        call build_four_rods_phantom(ifti,cti,geomkind,ctgeom,nos)
+      else if(phantom.eq.PHANTOM_SMALL) then
+        call build_small_single_rod_phantom(ifti,cti,geomkind,
+     *   ctgeom,nos)
+      else if(phantom.eq.PHANTOM_SMALL_FOUR) then
+        call build_small_four_rods_phantom(ifti,cti,geomkind,
+     *   ctgeom,nos)
+      else if(phantom.eq.PHANTOM_SQUARE) then
+        call build_square_phantom(ifti,cti,geomkind,ctgeom,nos)
+      else if(phantom.eq.PHANTOM_SQUARE2) then
+        call build_square2_phantom(ifti,cti,geomkind,ctgeom,nos)
+      else
+        nos=0
+      end if
+
+      return
+      end
+
+      subroutine build_cylindrical_phantom(ifti,cti,geomkind,ctgeom,
+     * bg_radius,nrod,rod_x,rod_z,rod_r,nos)
+      implicit none
+      integer ifti,cti,nrod,nos,i
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 bg_radius,rod_x(*),rod_z(*),rod_r(*)
+      real*8 cyl_y0,cyl_dy
+
+      cyl_y0=-0.75d0
+      cyl_dy=1.5d0
+      call add_rcc(ifti,cti,geomkind,ctgeom,
+     *  0.d0,cyl_y0,0.d0,0.d0,cyl_dy,0.d0,bg_radius)
+
+      do i=1,nrod
+        call add_rcc(ifti,cti,geomkind,ctgeom,
+     *   rod_x(i),cyl_y0,rod_z(i),0.d0,cyl_dy,0.d0,rod_r(i))
+      end do
+
+      nos=nrod+1
+      return
+      end
+
+      subroutine build_single_rod_phantom(ifti,cti,geomkind,ctgeom,
+     * nos)
+      implicit none
+      integer ifti,cti,nos
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 rod_x(1),rod_z(1),rod_r(1)
+
+      rod_x(1)=0.d0
+      rod_z(1)=0.d0
+      rod_r(1)=0.d0
+      call build_cylindrical_phantom(ifti,cti,geomkind,ctgeom,
+     *  0.15d0,0,rod_x,rod_z,rod_r,nos)
+
+      return
+      end
+
+      subroutine build_two_rods_phantom(ifti,cti,geomkind,ctgeom,nos)
+      implicit none
+      integer ifti,cti,nos
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 rod_x(2),rod_z(2),rod_r(2)
+
+      rod_x(1)=0.5d0
+      rod_x(2)=-0.5d0
+      rod_z(1)=0.d0
+      rod_z(2)=0.d0
+      rod_r(1)=0.25d0
+      rod_r(2)=0.25d0
+      call build_cylindrical_phantom(ifti,cti,geomkind,ctgeom,
+     *  1.0d0,2,rod_x,rod_z,rod_r,nos)
+
+      return
+      end
+
+      subroutine build_four_rods_phantom(ifti,cti,geomkind,ctgeom,
+     * nos)
+      implicit none
+      integer ifti,cti,nos
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 rod_x(4),rod_z(4),rod_r(4)
+
+      rod_x(1)=0.5d0
+      rod_x(2)=0.d0
+      rod_x(3)=-0.5d0
+      rod_x(4)=0.d0
+      rod_z(1)=0.d0
+      rod_z(2)=0.5d0
+      rod_z(3)=0.d0
+      rod_z(4)=-0.5d0
+      rod_r(1)=0.15d0
+      rod_r(2)=0.15d0
+      rod_r(3)=0.15d0
+      rod_r(4)=0.15d0
+      call build_cylindrical_phantom(ifti,cti,geomkind,ctgeom,
+     *  1.0d0,4,rod_x,rod_z,rod_r,nos)
+
+      return
+      end
+
+      subroutine build_small_single_rod_phantom(ifti,cti,geomkind,
+     * ctgeom,nos)
+      implicit none
+      integer ifti,cti,nos
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 rod_x(1),rod_z(1),rod_r(1)
+
+      rod_x(1)=0.d0
+      rod_z(1)=0.d0
+      rod_r(1)=0.075d0
+      call build_cylindrical_phantom(ifti,cti,geomkind,ctgeom,
+     *  0.25d0,1,rod_x,rod_z,rod_r,nos)
+
+      return
+      end
+
+      subroutine build_small_four_rods_phantom(ifti,cti,geomkind,
+     * ctgeom,nos)
+      implicit none
+      integer ifti,cti,nos
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 rod_x(4),rod_z(4),rod_r(4)
+
+      rod_x(1)=0.125d0
+      rod_x(2)=0.d0
+      rod_x(3)=-0.125d0
+      rod_x(4)=0.d0
+      rod_z(1)=0.d0
+      rod_z(2)=0.125d0
+      rod_z(3)=0.d0
+      rod_z(4)=-0.125d0
+      rod_r(1)=0.05d0
+      rod_r(2)=0.05d0
+      rod_r(3)=0.05d0
+      rod_r(4)=0.05d0
+      call build_cylindrical_phantom(ifti,cti,geomkind,ctgeom,
+     *  0.25d0,4,rod_x,rod_z,rod_r,nos)
+
+      return
+      end
+
+      subroutine build_square_phantom(ifti,cti,geomkind,ctgeom,nos)
+      implicit none
+      integer ifti,cti,nos
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+
+      call add_rcc(ifti,cti,geomkind,ctgeom,
+     *  0.d0,-0.75d0,0.d0,0.d0,1.5d0,0.d0,0.7d0)
+      call add_rpp(ifti,cti,geomkind,ctgeom,
+     *  0.1d0,0.5d0,-0.75d0,0.75d0,-0.4d0,-0.1d0)
+      call add_rpp(ifti,cti,geomkind,ctgeom,
+     *  0.1d0,0.5d0,-0.75d0,0.75d0,0.1d0,0.4d0)
+      call add_rpp(ifti,cti,geomkind,ctgeom,
+     *  -0.5d0,-0.1d0,-0.75d0,0.75d0,0.1d0,0.4d0)
+      call add_rpp(ifti,cti,geomkind,ctgeom,
+     *  -0.5d0,-0.1d0,-0.75d0,0.75d0,-0.4d0,-0.1d0)
+      nos=5
+
+      return
+      end
+
+      subroutine build_square2_phantom(ifti,cti,geomkind,ctgeom,nos)
+      implicit none
+      integer ifti,cti,nos
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+
+      call add_rpp(ifti,cti,geomkind,ctgeom,
+     *  -0.15d0,0.35d0,-0.75d0,0.75d0,0.d0,0.4d0)
+      call add_rpp(ifti,cti,geomkind,ctgeom,
+     *  -0.25d0,-0.2d0,-0.75d0,0.75d0,-0.4d0,0.4d0)
+      call add_rpp(ifti,cti,geomkind,ctgeom,
+     *  -0.325d0,-0.3d0,-0.75d0,0.75d0,-0.4d0,0.4d0)
+      call add_rpp(ifti,cti,geomkind,ctgeom,
+     *  -0.4125d0,-0.4d0,-0.75d0,0.75d0,-0.4d0,0.4d0)
+      nos=4
+
+      return
+      end
+
+      subroutine get_sample_media_sequence(phantom,media_ids,nmedia)
+      implicit none
+      integer phantom,nmedia
+      integer media_ids(*)
+      integer i
+      integer,parameter :: PHANTOM_ONION = 0
+      integer,parameter :: PHANTOM_TISSUE = 1
+      integer,parameter :: PHANTOM_METAL = 2
+      integer,parameter :: PHANTOM_FOUR_METAL = 3
+      integer,parameter :: PHANTOM_FOUR_METAL_TEST = 4
+      integer,parameter :: PHANTOM_FOUR_TISSUES = 5
+      integer,parameter :: PHANTOM_SMALL = 6
+      integer,parameter :: PHANTOM_SMALL_FOUR = 7
+      integer,parameter :: PHANTOM_SQUARE = 8
+      integer,parameter :: PHANTOM_SQUARE2 = 9
+
+      do i=1,5
+        media_ids(i)=0
+      end do
+
+      if(phantom.eq.PHANTOM_ONION) then
+        nmedia=1
+        media_ids(1)=5
+      else if(phantom.eq.PHANTOM_TISSUE) then
+        nmedia=3
+        media_ids(1)=4
+        media_ids(2)=6
+        media_ids(3)=5
+      else if(phantom.eq.PHANTOM_METAL) then
+        nmedia=3
+        media_ids(1)=4
+        media_ids(2)=3
+        media_ids(3)=7
+      else if(phantom.eq.PHANTOM_FOUR_METAL) then
+        nmedia=5
+        media_ids(1)=3
+        media_ids(2)=3
+        media_ids(3)=6
+        media_ids(4)=5
+        media_ids(5)=4
+      else if(phantom.eq.PHANTOM_FOUR_METAL_TEST) then
+        nmedia=5
+        media_ids(1)=2
+        media_ids(2)=2
+        media_ids(3)=2
+        media_ids(4)=2
+        media_ids(5)=2
+      else if(phantom.eq.PHANTOM_FOUR_TISSUES .or.
+     *        phantom.eq.PHANTOM_SQUARE) then
+        nmedia=5
+        media_ids(1)=4
+        media_ids(2)=2
+        media_ids(3)=5
+        media_ids(4)=7
+        media_ids(5)=9
+      else if(phantom.eq.PHANTOM_SMALL) then
+        nmedia=2
+        media_ids(1)=6
+        media_ids(2)=5
+      else if(phantom.eq.PHANTOM_SMALL_FOUR) then
+        nmedia=5
+        media_ids(1)=6
+        media_ids(2)=2
+        media_ids(3)=3
+        media_ids(4)=4
+        media_ids(5)=5
+      else if(phantom.eq.PHANTOM_SQUARE2) then
+        nmedia=4
+        media_ids(1)=4
+        media_ids(2)=4
+        media_ids(3)=4
+        media_ids(4)=4
+      else
+        nmedia=0
+      end if
+
+      return
+      end
+
+      subroutine write_zone_definitions(ifti,phantom,translation_times,
+     * nor)
+      implicit none
+      integer ifti,phantom,translation_times,nor
+      integer sample_media_ids(5),nsample
+      integer sample_body_start,end_body_id,transi,i
+      integer,parameter :: PHANTOM_SQUARE2 = 9
+
+120   FORMAT('Z',I0.4,' +',I0)
+130   FORMAT('Z',I0.4,' +',I0)
+140   FORMAT(' -',I0)
+150   FORMAT('Z',I0.4,' +',I0,' -',I0)
+
+      call get_sample_media_sequence(phantom,sample_media_ids,nsample)
+
+      do transi=0,translation_times-1
+        write(ifti,120) nor,nor+1
+        nor=nor+1
+      end do
+
+      sample_body_start=translation_times+3
+      write(ifti,130,advance='no') nor,nor+1
+      write(ifti,140,advance='no') 1
+      if(phantom.eq.PHANTOM_SQUARE2) then
+        do i=0,nsample-1
+          if(i.lt.nsample-1) then
+            write(ifti,140,advance='no') sample_body_start+i
+          else
+            write(ifti,140) sample_body_start+i
+          end if
+        end do
+      else
+        write(ifti,140) sample_body_start
+      end if
+      nor=nor+1
+
+      if(phantom.eq.PHANTOM_SQUARE2) then
+        do i=0,nsample-1
+          write(ifti,130) nor,sample_body_start+i
+          nor=nor+1
+        end do
+      else if(nsample.eq.1) then
+        write(ifti,130) nor,sample_body_start
+        nor=nor+1
+      else
+        write(ifti,130,advance='no') nor,sample_body_start
+        do i=1,nsample-1
+          if(i.lt.nsample-1) then
+            write(ifti,140,advance='no') sample_body_start+i
+          else
+            write(ifti,140) sample_body_start+i
+          end if
+        end do
+        nor=nor+1
+        do i=1,nsample-1
+          write(ifti,130) nor,sample_body_start+i
+          nor=nor+1
+        end do
+      end if
+
+      end_body_id=sample_body_start+nsample
+      write(ifti,150) nor,end_body_id,translation_times+2
+      write(ifti,*) 'END'
+
+      return
+      end
+
+      subroutine write_media_assignment(ifti,phantom,translation_times)
+      implicit none
+      integer ifti,phantom,translation_times
+      integer sample_media_ids(5),nsample,transi,i
+
+      call get_sample_media_sequence(phantom,sample_media_ids,nsample)
+
+      do transi=0,translation_times-1
+        write(ifti,fmt='(a)',advance='no') ' 1'
+      end do
+      write(ifti,fmt='(a)',advance='no') ' 2'
+      do i=1,nsample
+        write(ifti,fmt='(I2)',advance='no') sample_media_ids(i)
+      end do
+      write(ifti,fmt='(I2)') 0
+
+      return
+      end
+
+      subroutine add_box(ifti,cti,geomkind,ctgeom,
+     * x0,y0,z0,ax,ay,az,bx,by,bz,cx,cy,cz)
+      implicit none
+      integer ifti,cti,i
+      integer,parameter :: GEOM_BOX = 6
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 x0,y0,z0,ax,ay,az,bx,by,bz,cx,cy,cz
+
+      ctgeom(1,cti)=x0
+      ctgeom(2,cti)=y0
+      ctgeom(3,cti)=z0
+      ctgeom(4,cti)=ax
+      ctgeom(5,cti)=ay
+      ctgeom(6,cti)=az
+      ctgeom(7,cti)=bx
+      ctgeom(8,cti)=by
+      ctgeom(9,cti)=bz
+      ctgeom(10,cti)=cx
+      ctgeom(11,cti)=cy
+      ctgeom(12,cti)=cz
+      write(ifti,*) geomkind(GEOM_BOX),cti,(ctgeom(i,cti),i=1,12)
+      cti=cti+1
+
+      return
+      end
+
+      subroutine add_rcc(ifti,cti,geomkind,ctgeom,
+     * x0,y0,z0,ax,ay,az,radius)
+      implicit none
+      integer ifti,cti,i
+      integer,parameter :: GEOM_RCC = 2
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 x0,y0,z0,ax,ay,az,radius
+
+      ctgeom(1,cti)=x0
+      ctgeom(2,cti)=y0
+      ctgeom(3,cti)=z0
+      ctgeom(4,cti)=ax
+      ctgeom(5,cti)=ay
+      ctgeom(6,cti)=az
+      ctgeom(7,cti)=radius
+      write(ifti,*) geomkind(GEOM_RCC),cti,(ctgeom(i,cti),i=1,7)
+      cti=cti+1
+
+      return
+      end
+
+      subroutine add_rpp(ifti,cti,geomkind,ctgeom,
+     * xmin,xmax,ymin,ymax,zmin,zmax)
+      implicit none
+      integer ifti,cti,i
+      integer,parameter :: GEOM_RPP = 1
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 xmin,xmax,ymin,ymax,zmin,zmax
+
+      ctgeom(1,cti)=xmin
+      ctgeom(2,cti)=xmax
+      ctgeom(3,cti)=ymin
+      ctgeom(4,cti)=ymax
+      ctgeom(5,cti)=zmin
+      ctgeom(6,cti)=zmax
+      write(ifti,*) geomkind(GEOM_RPP),cti,(ctgeom(i,cti),i=1,6)
+      cti=cti+1
+
+      return
+      end
+
+!---------------------last line of geometry helper code-----------------
 !-------------------------------ausgab.f--------------------------------
 ! Version:   080708-1600
 ! Reference: SLAC-265 (p.19-20, Appendix 2)
