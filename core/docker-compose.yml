@@ -33,6 +33,7 @@ services:
       && echo "BEAM,$PAR_BEAM" >> /app/parameter.csv 
       && echo "PATH,$PAR_PATH" >> /app/parameter.csv 
       && cp -f "$INPFILE.inp" /app/linect.inp
+      && cp -f "$PAR_PHANTOM_FILE" /app/phantom.nml
       && cp -f "$XSRCFILE.csv" /app/source.csv
       && sed -i "s/\r//" /app/linect.inp
       && sed -i "s/\r//" /app/source.csv

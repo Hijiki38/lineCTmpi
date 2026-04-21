@@ -120,6 +120,27 @@
       character*6 rank_str
       real*8 mpi_esum(MXREG)
 
+! External phantom configuration file support
+      integer,parameter :: MAXINSERTS=64
+      logical ph_use_file
+      real*8 ph_bg_radius,ph_cyl_y0,ph_cyl_dy
+      integer ph_n_rcc,ph_n_rpp,ph_bg_med
+      real*8 ph_rcc_cx(MAXINSERTS),ph_rcc_cz(MAXINSERTS)
+      real*8 ph_rcc_r(MAXINSERTS)
+      real*8 ph_rpp_x1(MAXINSERTS),ph_rpp_x2(MAXINSERTS)
+      real*8 ph_rpp_y1(MAXINSERTS),ph_rpp_y2(MAXINSERTS)
+      real*8 ph_rpp_z1(MAXINSERTS),ph_rpp_z2(MAXINSERTS)
+      integer ph_nmed,ph_insert_med(MAXINSERTS)
+      character*24 ph_medarr(MXMED)
+      real*8 ph_chard(MXMED)
+      integer ios
+
+      NAMELIST /GEOMETRY/ ph_bg_radius,ph_cyl_y0,ph_cyl_dy,
+     * ph_n_rcc,ph_rcc_cx,ph_rcc_cz,ph_rcc_r,
+     * ph_n_rpp,ph_rpp_x1,ph_rpp_x2,ph_rpp_y1,
+     * ph_rpp_y2,ph_rpp_z1,ph_rpp_z2
+      NAMELIST /MATERIALS/ ph_nmed,ph_medarr,ph_chard,
+     * ph_bg_med,ph_insert_med
 
 
 !------------------
@@ -337,7 +358,39 @@
       write(6,*) "pegs5-call"
       flush(6)
 
-      call configure_media_table(phantom,nmed,medarr,chard)
+      ph_use_file=.false.
+      ph_bg_radius=1.0d0
+      ph_cyl_y0=-0.75d0
+      ph_cyl_dy=1.5d0
+      ph_n_rcc=0
+      ph_n_rpp=0
+      ph_bg_med=2
+      do i=1,MXMED
+        ph_medarr(i)='                        '
+        ph_chard(i)=0.05d0
+        ph_insert_med(i)=2
+      end do
+      ph_rcc_cx=0.0d0; ph_rcc_cz=0.0d0; ph_rcc_r=0.0d0
+      ph_rpp_x1=0.0d0; ph_rpp_x2=0.0d0
+      ph_rpp_y1=0.0d0; ph_rpp_y2=0.0d0
+      ph_rpp_z1=0.0d0; ph_rpp_z2=0.0d0
+
+      open(60,FILE='phantom.nml',STATUS='old',IOSTAT=ios)
+      if(ios.eq.0) then
+        read(60,NML=GEOMETRY)
+        read(60,NML=MATERIALS)
+        close(60)
+        ph_use_file=.true.
+        nmed=ph_nmed
+        do j=1,nmed
+          medarr(j)=ph_medarr(j)
+          chard(j)=ph_chard(j)
+        end do
+        write(6,*) 'Reading phantom config from phantom.nml'
+        flush(6)
+      else
+        call configure_media_table(phantom,nmed,medarr,chard)
+      end if
       if(nmed.gt.MXMED) then
         write(6,'(A,I4,A,I4,A/A)')
      *     ' nmed (',nmed,') larger than MXMED (',MXMED,')',
@@ -455,16 +508,31 @@
      *  ctdisd,htl,ctx,cty,ctz,translation_times,xl,zl,
      *  csrad,halfosl)
 
-      call write_phantom_geometry(phantom,ifti,cti,geomkind,
-     *  ctgeom,nos)
+      if(ph_use_file) then
+        call write_phantom_geometry_cfg(ifti,cti,geomkind,ctgeom,nos,
+     *    ph_bg_radius,ph_cyl_y0,ph_cyl_dy,
+     *    ph_n_rcc,ph_rcc_cx,ph_rcc_cz,ph_rcc_r,
+     *    ph_n_rpp,ph_rpp_x1,ph_rpp_x2,ph_rpp_y1,
+     *    ph_rpp_y2,ph_rpp_z1,ph_rpp_z2)
+      else
+        call write_phantom_geometry(phantom,ifti,cti,geomkind,
+     *    ctgeom,nos)
+      end if
 
       call add_rpp(ifti,cti,geomkind,ctgeom,-(halfosl+1.0d0),
      *  halfosl+1.0d0,-(halfosl+1.0d0),halfosl+1.0d0,
      *  -(halfosl+1.0d0),halfosl+1.0d0)
       write(ifti,*) geomkind(GEOM_END)
 
-      call write_zone_definitions(ifti,phantom,translation_times,nor)
-      call write_media_assignment(ifti,phantom,translation_times)
+      if(ph_use_file) then
+        call write_zone_definitions_cfg(ifti,translation_times,nor,
+     *    ph_bg_med,ph_n_rcc+ph_n_rpp)
+        call write_media_assignment_cfg(ifti,translation_times,
+     *    ph_bg_med,ph_n_rcc+ph_n_rpp,ph_insert_med)
+      else
+        call write_zone_definitions(ifti,phantom,translation_times,nor)
+        call write_media_assignment(ifti,phantom,translation_times)
+      end if
       close(unit=ifti)
 
 !-----------------------------------------------------------
@@ -782,6 +850,127 @@
       end
 !-------------------------last line of main code------------------------
 !-------------------------geometry helper code--------------------------
+
+      subroutine write_phantom_geometry_cfg(ifti,cti,geomkind,ctgeom,
+     * nos,bg_radius,cyl_y0,cyl_dy,
+     * n_rcc,rcc_cx,rcc_cz,rcc_r,
+     * n_rpp,rpp_x1,rpp_x2,rpp_y1,rpp_y2,rpp_z1,rpp_z2)
+      implicit none
+      integer ifti,cti,nos,n_rcc,n_rpp,i
+      character*3 geomkind(*)
+      real ctgeom(30,*)
+      real*8 bg_radius,cyl_y0,cyl_dy
+      real*8 rcc_cx(*),rcc_cz(*),rcc_r(*)
+      real*8 rpp_x1(*),rpp_x2(*),rpp_y1(*),rpp_y2(*),rpp_z1(*),rpp_z2(*)
+
+      nos=0
+      if(bg_radius.gt.0.0d0) then
+        call add_rcc(ifti,cti,geomkind,ctgeom,
+     *    0.d0,cyl_y0,0.d0,0.d0,cyl_dy,0.d0,bg_radius)
+        nos=nos+1
+      end if
+      do i=1,n_rcc
+        call add_rcc(ifti,cti,geomkind,ctgeom,
+     *    rcc_cx(i),cyl_y0,rcc_cz(i),0.d0,cyl_dy,0.d0,rcc_r(i))
+        nos=nos+1
+      end do
+      do i=1,n_rpp
+        call add_rpp(ifti,cti,geomkind,ctgeom,
+     *    rpp_x1(i),rpp_x2(i),rpp_y1(i),rpp_y2(i),rpp_z1(i),rpp_z2(i))
+        nos=nos+1
+      end do
+
+      return
+      end
+
+      subroutine write_zone_definitions_cfg(ifti,translation_times,
+     * nor,bg_med,n_inserts)
+      implicit none
+      integer ifti,translation_times,nor,bg_med,n_inserts
+      integer sample_body_start,end_body_id,transi,i,n_sample_zones
+
+120   FORMAT('Z',I0.4,' +',I0)
+130   FORMAT('Z',I0.4,' +',I0)
+140   FORMAT(' -',I0)
+150   FORMAT('Z',I0.4,' +',I0,' -',I0)
+
+      do transi=0,translation_times-1
+        write(ifti,120) nor,nor+1
+        nor=nor+1
+      end do
+
+      sample_body_start=translation_times+3
+
+      if(bg_med.eq.0) then
+        n_sample_zones=n_inserts
+        write(ifti,130,advance='no') nor,nor+1
+        write(ifti,140,advance='no') 1
+        do i=0,n_inserts-1
+          if(i.lt.n_inserts-1) then
+            write(ifti,140,advance='no') sample_body_start+i
+          else
+            write(ifti,140) sample_body_start+i
+          end if
+        end do
+        nor=nor+1
+        do i=0,n_inserts-1
+          write(ifti,130) nor,sample_body_start+i
+          nor=nor+1
+        end do
+      else
+        n_sample_zones=n_inserts+1
+        write(ifti,130,advance='no') nor,nor+1
+        write(ifti,140,advance='no') 1
+        write(ifti,140) sample_body_start
+        nor=nor+1
+        if(n_inserts.eq.0) then
+          write(ifti,130) nor,sample_body_start
+          nor=nor+1
+        else
+          write(ifti,130,advance='no') nor,sample_body_start
+          do i=1,n_inserts
+            if(i.lt.n_inserts) then
+              write(ifti,140,advance='no') sample_body_start+i
+            else
+              write(ifti,140) sample_body_start+i
+            end if
+          end do
+          nor=nor+1
+          do i=1,n_inserts
+            write(ifti,130) nor,sample_body_start+i
+            nor=nor+1
+          end do
+        end if
+      end if
+
+      end_body_id=sample_body_start+n_sample_zones
+      write(ifti,150) nor,end_body_id,translation_times+2
+      write(ifti,*) 'END'
+
+      return
+      end
+
+      subroutine write_media_assignment_cfg(ifti,translation_times,
+     * bg_med,n_inserts,insert_med)
+      implicit none
+      integer ifti,translation_times,bg_med,n_inserts
+      integer insert_med(*)
+      integer transi,i
+
+      do transi=0,translation_times-1
+        write(ifti,fmt='(a)',advance='no') ' 1'
+      end do
+      write(ifti,fmt='(a)',advance='no') ' 2'
+      if(bg_med.gt.0) then
+        write(ifti,fmt='(I2)',advance='no') bg_med
+      end if
+      do i=1,n_inserts
+        write(ifti,fmt='(I2)',advance='no') insert_med(i)
+      end do
+      write(ifti,fmt='(I2)') 0
+
+      return
+      end
 
       subroutine configure_media_table(phantom,nmed,medarr,chard)
       implicit none

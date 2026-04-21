@@ -1,0 +1,18 @@
+! PHANTOM_SMALL_FOUR (type 7): 小さい背景円柱 + 4本の細いロッド
+&GEOMETRY
+  bg_radius = 0.25
+  cyl_y0 = -0.75
+  cyl_dy = 1.5
+  n_rcc = 4
+  rcc_cx =  0.125, 0.0, -0.125, 0.0
+  rcc_cz =  0.0,   0.125, 0.0,  -0.125
+  rcc_r  =  0.05,  0.05, 0.05,   0.05
+  n_rpp = 0
+/
+&MATERIALS
+  nmed = 7
+  medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'PMMA', 'H2O', 'PVC', 'TI'
+  chard  = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
+  bg_med = 6
+  insert_med = 2, 3, 4, 5
+/
