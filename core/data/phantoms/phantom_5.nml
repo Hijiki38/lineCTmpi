@@ -1,19 +1,19 @@
 ! PHANTOM_FOUR_TISSUES (type 5): 背景PMMA + 4本の組織等価ロッド
 &GEOMETRY
-  bg_radius = 1.0
-  cyl_y0 = -0.75
-  cyl_dy = 1.5
-  n_rcc = 4
-  rcc_cx = 0.5, 0.0, -0.5, 0.0
-  rcc_cz = 0.0, 0.5,  0.0, -0.5
-  rcc_r  = 0.15, 0.15, 0.15, 0.15
-  n_rpp = 0
+  ph_bg_radius = 1.0
+  ph_cyl_y0 = -0.75
+  ph_cyl_dy = 1.5
+  ph_n_rcc = 4
+  ph_rcc_cx = 0.5, 0.0, -0.5, 0.0
+  ph_rcc_cz = 0.0, 0.5,  0.0, -0.5
+  ph_rcc_r  = 0.15, 0.15, 0.15, 0.15
+  ph_n_rpp = 0
 /
 &MATERIALS
-  nmed = 9
-  medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'PMMA', 'H2O', 'PVC', 'PLA', 'C',
-           'ABS'
-  chard  = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
-  bg_med = 4
-  insert_med = 2, 5, 7, 9
+  ph_nmed = 9
+  ph_medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'PMMA', 'H2O', 'PVC', 'PLA', 'C',
+              'ABS'
+  ph_chard  = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
+  ph_bg_med = 4
+  ph_insert_med = 2, 5, 7, 9
 /

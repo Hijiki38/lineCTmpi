@@ -1,22 +1,22 @@
 ! PHANTOM_SQUARE (type 8): 背景円柱 + 4つの直方体インサート
 &GEOMETRY
-  bg_radius = 0.7
-  cyl_y0 = -0.75
-  cyl_dy = 1.5
-  n_rcc = 0
-  n_rpp = 4
-  rpp_x1 =  0.1,  0.1, -0.5, -0.5
-  rpp_x2 =  0.5,  0.5, -0.1, -0.1
-  rpp_y1 = -0.75, -0.75, -0.75, -0.75
-  rpp_y2 =  0.75,  0.75,  0.75,  0.75
-  rpp_z1 = -0.4,  0.1,  0.1, -0.4
-  rpp_z2 = -0.1,  0.4,  0.4, -0.1
+  ph_bg_radius = 0.7
+  ph_cyl_y0 = -0.75
+  ph_cyl_dy = 1.5
+  ph_n_rcc = 0
+  ph_n_rpp = 4
+  ph_rpp_x1 =  0.1,  0.1, -0.5, -0.5
+  ph_rpp_x2 =  0.5,  0.5, -0.1, -0.1
+  ph_rpp_y1 = -0.75, -0.75, -0.75, -0.75
+  ph_rpp_y2 =  0.75,  0.75,  0.75,  0.75
+  ph_rpp_z1 = -0.4,  0.1,  0.1, -0.4
+  ph_rpp_z2 = -0.1,  0.4,  0.4, -0.1
 /
 &MATERIALS
-  nmed = 9
-  medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'PMMA', 'H2O', 'PVC', 'PLA', 'C',
-           'ABS'
-  chard  = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
-  bg_med = 4
-  insert_med = 2, 5, 7, 9
+  ph_nmed = 9
+  ph_medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'PMMA', 'H2O', 'PVC', 'PLA', 'C',
+              'ABS'
+  ph_chard  = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
+  ph_bg_med = 4
+  ph_insert_med = 2, 5, 7, 9
 /

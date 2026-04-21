@@ -133,7 +133,7 @@
       integer ph_nmed,ph_insert_med(MAXINSERTS)
       character*24 ph_medarr(MXMED)
       real*8 ph_chard(MXMED)
-      integer ios
+      integer ios,ios_geom,ios_mat
 
       NAMELIST /GEOMETRY/ ph_bg_radius,ph_cyl_y0,ph_cyl_dy,
      * ph_n_rcc,ph_rcc_cx,ph_rcc_cz,ph_rcc_r,
@@ -377,17 +377,29 @@
 
       open(60,FILE='phantom.nml',STATUS='old',IOSTAT=ios)
       if(ios.eq.0) then
-        read(60,NML=GEOMETRY)
-        read(60,NML=MATERIALS)
+        ios_geom=0
+        ios_mat=0
+        read(60,NML=GEOMETRY,IOSTAT=ios_geom)
+        if(ios_geom.eq.0) then
+          read(60,NML=MATERIALS,IOSTAT=ios_mat)
+        end if
         close(60)
-        ph_use_file=.true.
-        nmed=ph_nmed
-        do j=1,nmed
-          medarr(j)=ph_medarr(j)
-          chard(j)=ph_chard(j)
-        end do
-        write(6,*) 'Reading phantom config from phantom.nml'
-        flush(6)
+        if(ios_geom.eq.0 .and. ios_mat.eq.0) then
+          ph_use_file=.true.
+          nmed=ph_nmed
+          do j=1,nmed
+            medarr(j)=ph_medarr(j)
+            chard(j)=ph_chard(j)
+          end do
+          write(6,*) 'Reading phantom config from phantom.nml'
+          flush(6)
+        else
+          write(6,*) 'Failed to read phantom.nml, fallback to PAR_PNTM'
+          write(6,*) ' GEOMETRY IOSTAT =',ios_geom,
+     *               ' MATERIALS IOSTAT =',ios_mat
+          flush(6)
+          call configure_media_table(phantom,nmed,medarr,chard)
+        end if
       else
         call configure_media_table(phantom,nmed,medarr,chard)
       end if

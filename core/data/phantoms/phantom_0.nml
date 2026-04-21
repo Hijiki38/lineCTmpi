@@ -1,14 +1,14 @@
 ! PHANTOM_ONION (type 0): 均一な小円柱ファントム（インサートなし）
 &GEOMETRY
-  bg_radius = 0.15
-  cyl_y0 = -0.75
-  cyl_dy = 1.5
-  n_rcc = 0
-  n_rpp = 0
+  ph_bg_radius = 0.15
+  ph_cyl_y0 = -0.75
+  ph_cyl_dy = 1.5
+  ph_n_rcc = 0
+  ph_n_rpp = 0
 /
 &MATERIALS
-  nmed = 7
-  medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'PMMA', 'H2O', 'PVC', 'TI'
-  chard  = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
-  bg_med = 5
+  ph_nmed = 7
+  ph_medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'PMMA', 'H2O', 'PVC', 'TI'
+  ph_chard  = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
+  ph_bg_med = 5
 /
