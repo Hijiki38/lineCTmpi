@@ -275,10 +275,28 @@ python mksino.py 20 80 ../core/share/ bg_average.csv sino.raw
 
 ### まず 1 台で確認したいとき
 
-1. `core/.env` の `INPFILE`, `XSRCFILE`, `PAR_*` を調整する
+1. `core/configs/` に設定ファイルを用意し、`use_config.sh` で選択する（後述）
 2. `core/` で `docker-compose up` を実行する
 3. `core/share/` の CSV とログを確認する
 4. 必要なら `sino/` のスクリプトで後処理する
+
+### 設定ファイルを切り替えるとき
+
+`core/configs/` に複数のパラメータセット（`.env` フォーマット）を置いておき、`use_config.sh` で切り替える。
+
+```bash
+# 利用可能な設定を一覧表示
+cd core/
+./use_config.sh --list
+
+# 設定を選択して .env に適用
+./use_config.sh linect_metal_150kv
+
+# 従来通り docker-compose を実行
+docker-compose up
+```
+
+新しいパラメータセットを追加するには、`core/configs/` に `<設定名>.env` ファイルを作成する。
 
 ### 投影数を分割して並列化したいとき
 

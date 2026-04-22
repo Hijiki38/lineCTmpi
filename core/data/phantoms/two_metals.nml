@@ -1,0 +1,22 @@
+! two_metals phantom: JNDE用メタルファントム(2金属)
+&GEOMETRY
+  ph_bg_radius = 0.0
+  ph_cyl_y0 = -0.75
+  ph_cyl_dy = 1.5
+  ph_n_rcc = 0
+  ph_n_rpp = 2
+  ph_rpp_x1 = -0.3,  0.0
+  ph_rpp_x2 =  0.0,  0.3
+  ph_rpp_y1 = -0.75,  -0.75
+  ph_rpp_y2 =  0.75,   0.75
+  ph_rpp_z1 =  -0.3,   -0.4
+  ph_rpp_z2 =  0.0,    0.4
+/
+&MATERIALS
+  ph_nmed = 9
+  ph_medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'PMMA', 'H2O', 'PVC', 'PLA', 'C',
+              'ABS'
+  ph_chard  = 0.01, 0.05, 0.05, 0.0005, 0.05, 0.05, 0.05, 0.05, 0.05
+  ph_bg_med = 0
+  ph_insert_med = 4, 4, 4, 4
+/
