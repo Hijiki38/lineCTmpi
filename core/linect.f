@@ -585,6 +585,7 @@
       write(ifto,fmt="(i4)") nreg
       write(ifto,fmt="(15i4)") (med(i),i=1,nreg)
       write(ifto,fmt="('MEND')")
+      flush(ifto)   ! バッファを強制書き出し（異常終了時の.picファイル破損を防ぐ）
       close(unit=ifti)
 
 !     --------------------------------------------------------

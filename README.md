@@ -94,7 +94,9 @@ EGS5 を使った CT シミュレーション用のコードベースです。
 - `PAR_HSTP`
   終了投影番号
 - `PAR_PNTM`
-  ファントム番号
+  ファントム番号（`PAR_PHANTOM_FILE` が未設定または読み込み失敗時のフォールバック用）
+- `PAR_PHANTOM_FILE`
+  ファントム設定 NAMELIST ファイルのパス。設定するとファントムのジオメトリと材料を外部ファイルから読み込む。省略時は `PAR_PNTM` による内部定義にフォールバックする。例: `./data/phantoms/phantom_3.nml`
 - `PAR_BEAM`
   ビーム種別。`0=Parallel`, `1=Fan`
 - `PAR_PATH`
@@ -113,6 +115,7 @@ docker-compose up
 
 - `.env` の内容から `parameter.csv` を生成
 - `INPFILE.inp` を `/app/linect.inp` にコピー
+- `PAR_PHANTOM_FILE` が設定されていてファイルが存在する場合、`/app/phantom.nml` にコピー。未設定の場合は `/app/phantom.nml` を削除して `PAR_PNTM` フォールバックを促す
 - `XSRCFILE.csv` を `/app/source.csv` にコピー
 - `egs5mpirun foreground $PAR_PATH $NUM_CPU` を実行
 - 完了マーカーとして `share/done` を作成
@@ -135,11 +138,14 @@ docker-compose up
   材料定義やファントムに対応する `.inp` ファイル
 - `core/data/source/`
   線源スペクトル CSV
+- `core/data/phantoms/`
+  ファントム設定 NAMELIST ファイル（`phantom_0.nml` 〜 `phantom_9.nml`）。各ファイルに `&GEOMETRY` と `&MATERIALS` セクションを含む Fortran NAMELIST 形式で記述されており、`PAR_PHANTOM_FILE` で選択して使う
 
 含まれているファイル名を見る限り、少なくとも以下のような入力セットが準備されています。
 
 - 材料入力: `linect_metal.inp`, `linect_TS.inp`, `linectplastic.inp`, `linectiodine.inp`
 - 線源: `source150kv.csv`, `source300kv.csv`, `source270kv_theta60_cu0.1mm.csv`, `source270kv_theta60_cu0.3mm.csv`
+- ファントム: `phantom_0.nml`（Onion）〜 `phantom_9.nml`（派生ファントム）
 
 ## `linect.f` について
 
@@ -148,10 +154,38 @@ README を読むうえで押さえておけば十分な点は次のくらいで�
 
 - `parameter.csv` から 10 個のパラメータを順に読み込む
 - `source.csv` の 1 列目をエネルギー、2 列目を重みとして読む
-- `PAR_PNTM` に相当する `phantom` 値で幾何や材料セットを切り替える
+- 起動ディレクトリに `phantom.nml` が存在すれば、そこから `&GEOMETRY` と `&MATERIALS` を読んでファントムを構成する
+- `phantom.nml` が存在しない、またはパースに失敗した場合は `PAR_PNTM` に相当する `phantom` 整数値で幾何・材料セットを切り替えるフォールバックを行う
 - `PAR_BEAM` に相当する `beam` 値で parallel/fan を切り替える
 
-コード中のコメントから、`phantom` は少なくとも以下の値を想定しています。
+### phantom.nml のフォーマット
+
+`core/data/phantoms/` に収録された `.nml` ファイルが参考例です。Fortran NAMELIST 形式で `&GEOMETRY` と `&MATERIALS` の 2 セクションを持ちます。
+
+```fortran
+! ファントム説明コメント
+&GEOMETRY
+  ph_bg_radius = 1.0        ! 背景円柱の半径 [cm]
+  ph_cyl_y0    = -0.75      ! 円柱下端 Y 座標 [cm]
+  ph_cyl_dy    = 1.5        ! 円柱高さ [cm]
+  ph_n_rcc     = 4          ! 円柱インサート数
+  ph_rcc_cx    = 0.5, 0.0, -0.5, 0.0   ! 各インサート X 中心
+  ph_rcc_cz    = 0.0, 0.5,  0.0, -0.5  ! 各インサート Z 中心
+  ph_rcc_r     = 0.15, 0.15, 0.15, 0.15
+  ph_n_rpp     = 0
+/
+&MATERIALS
+  ph_nmed       = 7
+  ph_medarr     = 'CDTE', 'AIR-AT-NTP', 'AL', 'CU', 'TI', 'C', 'H2O'
+  ph_chard      = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
+  ph_bg_med     = 3         ! 背景媒質インデックス
+  ph_insert_med = 3, 6, 5, 4  ! 各インサートの媒質インデックス
+/
+```
+
+### フォールバック時のファントム番号
+
+`phantom.nml` を使わない場合（`PAR_PHANTOM_FILE` 未設定または読み込み失敗）、`PAR_PNTM` の値が使われます。
 
 - `0`: Onion
 - `1`: Tissue
@@ -163,8 +197,7 @@ README を読むうえで押さえておけば十分な点は次のくらいで�
 - `7`: smallfour
 - `8`, `9`: 追加の派生ファントム
 
-既存のサブ README には古い説明も残っていますが、少なくとも `core/.env` のサンプルでは `PAR_PNTM=3` が使われています。  
-そのため、ファントム番号は `core/README.md` より `core/linect.f` の定義を優先して読むのが安全です。
+既存のサブ README には古い説明も残っていますが、少なくとも `core/.env` のサンプルでは `PAR_PNTM=3`、`PAR_PHANTOM_FILE=./data/phantoms/phantom_3.nml` が使われています。
 
 ## GCP での分散実行
 
@@ -256,7 +289,8 @@ python mksino.py 20 80 ../core/share/ bg_average.csv sino.raw
 ## 注意点
 
 - `INPFILE` の材料数は `linect.f` 側の想定と一致している必要があります
-- `PAR_PNTM` と `INPFILE` の組み合わせが不整合だと、材料対応が崩れる可能性があります
+- `PAR_PHANTOM_FILE` の `.nml` と `INPFILE` の `.inp` は材料リスト（`ph_medarr`）が一致している必要があります
+- `PAR_PHANTOM_FILE` を使わない場合でも、`PAR_PNTM` と `INPFILE` の組み合わせが不整合だと材料対応が崩れる可能性があります
 - `source.csv` の先頭カウントが 0 だと `linect.f` 側で停止します
 - `core/share/` に書き込み権限がないと出力できません
 - 既存 README の一部説明は古く、特にファントム番号の説明は `linect.f` を参照するほうが確実です
