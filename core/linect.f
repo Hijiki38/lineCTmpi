@@ -93,7 +93,7 @@
 
       integer apch
 
-      integer,dimension(maxch,maxtrans) :: phs!, mpi_phs
+      integer,dimension(maxch,maxtrans) :: phs, mpi_phs
 
       integer
      * i,icases,idin,ie,ifti,ifto,ifct,imed,ireg,nlist,j,ntype,
@@ -458,13 +458,14 @@
 
       ctang=360e0/ctstep*stepi
 
-      call chdir("./"//savepath)
+      if(mpi_rank.eq.0) then
+        call chdir("./"//savepath)
+        write (degfile,'(I3.3,F0.2,".csv")') int(ctang),
+     *     ctang-int(ctang)
+        flush(6)
 
-      write (degfile,'(I3.3,F0.2,".",A,".csv")') int(ctang),
-     *   ctang-int(ctang),rank_str
-      flush(6)
-
-      open(ifct,FILE=degfile,STATUS='replace')
+        open(ifct,FILE=degfile,STATUS='replace')
+      end if
       write (pictfile,'("egs5job",I0,".",A,".pic")') stepi,rank_str
       flush(6)
       open(ifto_original,FILE=pictfile,STATUS='replace')
@@ -475,7 +476,9 @@
         end do
       end do
 
-      call chdir("../")
+      if(mpi_rank.eq.0) then
+        call chdir("../")
+      end if
 
 !for MPI
       ! if(mpi_rank.eq.0) then
@@ -830,13 +833,17 @@
       write(6,260)
 260   FORMAT(/' Pulse height distribution ')
 270   FORMAT(I5,',')
-      do ie=1,maxch
-        do cti=1,translation_times-1
-          write(ifct,270,advance='no') phs(ie,cti)
+      call mpi_reduce(phs,mpi_phs,maxch*translation_times,MPI_INTEGER,
+     *  MPI_SUM,0,MPI_COMM_WORLD,mpierr)
+      if(mpi_rank.eq.0) then
+        do ie=1,maxch
+          do cti=1,translation_times-1
+            write(ifct,270,advance='no') mpi_phs(ie,cti)
+          end do
+          write(ifct,*) mpi_phs(ie,cti)
         end do
-        write(ifct,*) phs(ie,cti)
-      end do
-      close(unit=ifct)
+        close(unit=ifct)
+      end if
       close(unit=ifto_original)
 
                                              ! --------------------
