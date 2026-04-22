@@ -177,11 +177,13 @@ echo "------------------------------------------------------------"
 rm -f egs5job.*         2> /dev/null
 rm -f fort.*            2> /dev/null
 rm -f pgs5job.*         2> /dev/null
-rm -f -r include           2> /dev/null
-rm -f -r pegscommons       2> /dev/null
-rm -f -r auxcommons        2> /dev/null
-rm -f -r data              2> /dev/null
-rm -f -r mpi_include       2> /dev/null
+for link_name in include pegscommons auxcommons data mpi_include
+do
+  if test -L "$link_name"
+    then
+      rm -f "$link_name" 2> /dev/null
+  fi
+done
 
 #--------------------------------------------
 # Jump out of script if "cl" option is chosen
@@ -355,7 +357,19 @@ fi
 #------------------------------------
 # Link data directory
 #------------------------------------
-ln -s $BASKET/data               data
+if test -d data -a ! -L data
+  then
+    for basket_entry in $BASKET/data/*
+    do
+      entry_name=`basename "$basket_entry"`
+      if test ! -e "data/$entry_name"
+        then
+          ln -s "$PWD/$basket_entry" "data/$entry_name"
+      fi
+    done
+else
+    ln -s $BASKET/data               data
+fi
 
 #------------------
 # Run the job
