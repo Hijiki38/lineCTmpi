@@ -380,10 +380,16 @@
         ios_geom=0
         ios_mat=0
         read(60,NML=GEOMETRY,IOSTAT=ios_geom)
-        if(ios_geom.eq.0) then
-          read(60,NML=MATERIALS,IOSTAT=ios_mat)
-        end if
         close(60)
+        if(ios_geom.eq.0) then
+          open(61,FILE='phantom.nml',STATUS='old',IOSTAT=ios)
+          if(ios.eq.0) then
+            read(61,NML=MATERIALS,IOSTAT=ios_mat)
+            close(61)
+          else
+            ios_mat=ios
+          end if
+        end if
         if(ios_geom.eq.0 .and. ios_mat.eq.0) then
           ph_use_file=.true.
           nmed=ph_nmed
