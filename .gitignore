@@ -1,2 +1,4 @@
 .vs*
 /core/share
+/output
+*.npz
