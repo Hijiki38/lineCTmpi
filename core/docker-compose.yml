@@ -10,6 +10,7 @@ services:
       - 80:80
     volumes:
       - ./share:/app/share
+      - ./data/phantoms:/app/data/phantoms
     env_file:
       - .env
     tty: true
@@ -33,7 +34,7 @@ services:
       && echo "BEAM,$PAR_BEAM" >> /app/parameter.csv 
       && echo "PATH,$PAR_PATH" >> /app/parameter.csv 
       && cp -f "$INPFILE.inp" /app/linect.inp
-      && if [ -n "$PAR_PHANTOM_FILE" ] && [ -f "$PAR_PHANTOM_FILE" ]; then cp -f "$PAR_PHANTOM_FILE" /app/phantom.nml; else rm -f /app/phantom.nml; fi
+      && if [ -n "$PAR_PHANTOM_FILE" ] && [ -f "$PAR_PHANTOM_FILE" ]; then cp -f "$PAR_PHANTOM_FILE" /app/phantom.nml && sed -i "s/\r//" /app/phantom.nml; else rm -f /app/phantom.nml; fi
       && cp -f "$XSRCFILE.csv" /app/source.csv
       && sed -i "s/\r//" /app/linect.inp
       && sed -i "s/\r//" /app/source.csv
