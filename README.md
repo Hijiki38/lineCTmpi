@@ -12,7 +12,7 @@ EGS5 を使った CT シミュレーション用のコードベースです。
 - ローカルの複数 PC に SSH で投げ分けて計算する
 - GCP の Managed Instance Group を使って並列実行する
 - 出力された CSV をマージし、Google Drive へアップロードする
-- シミュレーション結果から平均背景画像やサイノグラムを生成する
+- シミュレーション結果から平均背景画像やサイノグラムを生成する（エネルギー全ビン保持の `.npz` 形式を含む）
 
 ## 全体像
 
@@ -23,7 +23,8 @@ EGS5 を使った CT シミュレーション用のコードベースです。
 3. `core/egs5mpirun` が `linect.f` を EGS5/EGS5-MPI と合わせてコンパイルし、MPI 実行する
 4. `core/share/` に投影ごとの出力 CSV やログが生成される
 5. 必要に応じて `gcp_VM/mergecsv.py` で CSV を束ね、`gcp_VM/upload.py` で Google Drive にアップロードする
-6. `sino/avebg.py` や `sino/mksino.py` で後処理する
+6. `sino/collect_sino.py` で全エネルギービンを保持した3次元サイノグラム（`.npz`）を生成する
+7. `sino/avebg.py` や `sino/mksino.py` でエネルギー範囲を絞った後処理を行う
 
 ## ディレクトリ構成
 
@@ -33,6 +34,8 @@ EGS5 を使った CT シミュレーション用のコードベースです。
   GCP の Managed Instance Group を起動し、各インスタンスへ計算条件を書き込んで計算を走らせるクライアントです。
 - `gcp_VM/`
   GCP 側インスタンスで使う補助スクリプトです。出力 CSV の統合と Google Drive へのアップロードを担当します。
+- `misc/`
+  detector response function の適用など、補助的な後処理スクリプトを置くディレクトリです。
 - `remote/`
   手元の Windows マシンから SSH で複数ホストへ計算を配るための PowerShell / BAT スクリプト群です。
 - `sino/`
@@ -270,6 +273,30 @@ python mksino.py <ene_min> <ene_max> <input_dir> <bg_file> <output_file>
 ```bash
 python mksino.py 20 80 ../core/share/ bg_average.csv sino.raw
 ```
+
+### `misc/apply_detector_response.py`
+
+投影像 CSV 群に detector response function を適用し、検出器エネルギービンごとの 1 行 CSV を出力します。
+
+- 入力投影 CSV:
+  各行が EGS のエネルギービン、各列が検出器位置です。
+- response CSV:
+  1 列目がエネルギー [keV]、2 列目以降が各 detector bin の response 値です。
+- 畳み込み:
+  `sum N(E,s) * f_b(E) * ΔE` の積分近似で計算します。
+
+```bash
+python misc/apply_detector_response.py <input_dir> <response_csv> <output_dir> [--pattern <glob>] [--energy-offset-kev <value>] [--energy-step-kev <value>] [--max-energy-rows <value>]
+```
+
+例:
+
+```bash
+python misc/apply_detector_response.py core/share detector_response.csv misc/output --pattern "*.csv"
+```
+
+既定値では、現行 `linect.f` の設定に合わせて EGS エネルギー軸を `0.04 keV` 開始、`0.4 keV` 刻み、最大 `1000` 行として扱います。  
+出力ファイル名は元ファイル名を保持しつつ `bin001`, `bin002` のような detector bin 番号を付けます。
 
 ## 典型的な作業パターン
 
