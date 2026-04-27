@@ -47,6 +47,7 @@ project_id = p.project_id
 zone = p.zone
 instance_group_name = p.instance_group_name
 user_name = p.user_name
+repository_name = p.repository_name
 num_instance = p.num_instance
 poling_timer = p.poling_timer
 
@@ -97,7 +98,12 @@ class Instance:
 
     async def __calculation(self):
         # リモート側で実行する bash スクリプト本体（gcloud が --command の値として丸ごと渡してくれる）
-        remote_script = f"""cd {calc_dir_path};
+        # 計算前に develop ブランチの最新コードへ強制同期する（ローカル変更があっても確実に追従させる）
+        remote_script = f"""set -e;
+cd /home/{user_name}/{repository_name};
+git fetch origin develop;
+git reset --hard origin/develop;
+cd {calc_dir_path};
 CLOUD_INSTANCE="{self.instance}";
 CLOUD_USER=$(gcloud config get-value account);
 CLOUD_IP=$(curl -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip);

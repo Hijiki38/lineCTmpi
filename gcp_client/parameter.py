@@ -13,7 +13,7 @@ par_sdd = 50	# 線源ー検出器間距離(cm)
 par_ptch = 0.01	# ピクセルの大きさ(cm)
 par_ttms = 512	# ピクセル数
 par_step = 1	# 投影数
-par_hist = 10000000	# 光子数（1千万）
+par_hist = 1000000	# 光子数（100万、試し打ち短縮版・約10分想定）
 par_istp = 0	# 開始投影数
 par_xstp = 1	# 1インスタンス当たりの投影枚数
 par_pntm = 3	# ファントム（PAR_PHANTOM_FILE=two_metals.nml がイメージ側で有効なのでフォールバック用）
