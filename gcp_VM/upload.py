@@ -2,32 +2,41 @@ from __future__ import print_function
 import os
 import glob
 import sys
-sys.path.append("../gcp_client/parameter")
+# parameter.py は gcp_client/ に置かれているため、本スクリプトの絶対位置を基準に追加する
+# （カレントディレクトリ依存の相対パスだとSSH経由実行時に解決できない）
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.normpath(os.path.join(_THIS_DIR, '..', 'gcp_client')))
 import parameter as p
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
-from google.oauth2 import service_account
+import google.auth
 
 args = sys.argv      #引数を指定
 file_path = args[1]  #入力ファイルのパス("/"まで)
 all_files = glob.glob(F'{file_path}*.csv')
 
-keyfile_path = p.keyfile_path
 share_drive_id = p.share_drive_id
 
-def upload_basic():
-    """Insert new file.
-    Returns : Id's of the file uploaded
+# Drive API 用のスコープ（GCE インスタンスに紐付いた SA から ADC 経由で取得する）
+SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    Load pre-authorized user credentials from the environment.
-    TODO(developer) - See https://developers.google.com/identity
-    for guides on implementing OAuth2 for the application.
+def upload_basic():
+    """
+    Drive 共有フォルダにCSVをアップロードします
+
+    認証は GCE インスタンスにアタッチされたサービスアカウントを
+    Application Default Credentials (ADC) 経由で利用します。
+    キーファイルは不要です（インスタンステンプレートの --service-account と
+    --scopes で権限が付与されている前提）。
+
+    Returns:
+        最後にアップロードしたファイルのID
     """
 
-    #サービスアカウントの認証
-    creds = service_account.Credentials.from_service_account_file(keyfile_path)
+    # GCE メタデータサーバ経由でインスタンスの SA を取得
+    creds, _ = google.auth.default(scopes=SCOPES)
 
     #ファイルのアップロード
     try:

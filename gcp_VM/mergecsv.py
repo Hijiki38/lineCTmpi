@@ -1,9 +1,7 @@
 import sys
-sys.path.append('/home/zdc/lib')
 import glob
 import csv
 import os
-import numpy as np
 from collections import defaultdict
 
 args = sys.argv   
@@ -47,8 +45,11 @@ for deg, same_deg_files in all_files_dict.items():
                 cols = len(data[0])
                 result = [[0 for j in range(cols)] for i in range(rows)]
 
-            #resultに読みこんだデータを加算
-            result = np.add(result, data)
+            #resultに読みこんだデータを加算（純Pythonで要素ごと加算）
+            result = [
+                [a + b for a, b in zip(result_row, data_row)]
+                for result_row, data_row in zip(result, data)
+            ]
     
     #データ結合されたファイルを作成
     with open(F'{deg}.csv', 'w', newline='') as f:

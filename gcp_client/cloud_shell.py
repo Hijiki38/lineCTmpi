@@ -185,9 +185,17 @@ nohup docker-compose up > /home/{user_name}/compose.log 2>&1 &
 
             if judge_complete_result == 0:
                 # 計算完了 → CSV結合 + Drive アップロード → インスタンス削除
-                self.__merge_and_upload()
-                self.__delete_instance()
-                print(f"Instance {self.instance} calculation done. Uploaded to Drive and instance deleted.")
+                # アップロード失敗時はインスタンスを残し、計算結果のロストを防ぐ
+                upload_result = self.__merge_and_upload()
+                if upload_result == 0:
+                    self.__delete_instance()
+                    print(f"Instance {self.instance} calculation done. Uploaded to Drive and instance deleted.")
+                else:
+                    print(
+                        f"[ERROR] Instance {self.instance}: merge/upload failed (exit={upload_result}). "
+                        f"Instance is kept alive for manual recovery. "
+                        f"Check share dir and re-run upload manually before deleting."
+                    )
 
 
 async def main():
