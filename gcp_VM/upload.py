@@ -32,36 +32,41 @@ def upload_basic():
     --scopes で権限が付与されている前提）。
 
     Returns:
-        最後にアップロードしたファイルのID
+        アップロードしたファイルIDのリスト
     """
+
+    # アップロード対象が無い場合は明示的に失敗扱い（呼び出し側で計算結果ロストを防ぐため）
+    if not all_files:
+        print(F'[ERROR] No CSV files found in {file_path}')
+        sys.exit(1)
 
     # GCE メタデータサーバ経由でインスタンスの SA を取得
     creds, _ = google.auth.default(scopes=SCOPES)
 
-    #ファイルのアップロード
+    uploaded_ids = []
     try:
-        # create drive api client
         service = build('drive', 'v3', credentials=creds)
 
         for file_name in all_files:
-            
             file_metadata = {
                 'name': os.path.basename(file_name),
-                'parents': [share_drive_id] 
+                'parents': [share_drive_id]
             }
-            
-            media = MediaFileUpload(file_name,
-                                    mimetype='text/csv')
+            media = MediaFileUpload(file_name, mimetype='text/csv')
             # pylint: disable=maybe-no-member
-            file = service.files().create(body=file_metadata, media_body=media,
-                                        fields='id', supportsAllDrives=True).execute()
+            file = service.files().create(
+                body=file_metadata, media_body=media,
+                fields='id', supportsAllDrives=True
+            ).execute()
             print(F'File ID: {file.get("id")}')
+            uploaded_ids.append(file.get('id'))
 
     except HttpError as error:
-        print(F'An error occurred: {error}')
-        file = None
+        print(F'[ERROR] An error occurred during upload: {error}')
+        sys.exit(1)
 
-    return file.get('id')
+    return uploaded_ids
+
 
 if __name__ == '__main__':
     upload_basic()
