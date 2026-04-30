@@ -2,3 +2,4 @@
 /core/share
 /output
 *.npz
+memo/*.log

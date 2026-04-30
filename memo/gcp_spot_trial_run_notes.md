@@ -1,0 +1,548 @@
+# GCP Spot VM でのシミュレーション試し打ち ノート
+
+作成日: 2026-04-24
+最終更新: 2026-05-01
+対象: ctsimulator_egs5 (lineCTmpi) のGCP実行環境立ち上げと試し打ち
+
+## 目次
+
+- [目的](#目的)
+- [現在のステータス](#現在のステータス)
+- [最終方針（確定）](#最終方針確定)
+- [試し打ち実測結果](#試し打ち実測結果1投影--1千万フォトン--4コア)
+- [本番見積もり](#本番見積もり実測ベース)
+- [構築済みリソース](#構築済みリソース)
+- [プロジェクト移管 / SA 認証方針](#プロジェクト移管--sa-認証方針2026-04-27)
+- [踏んだ落とし穴と解決策](#踏んだ落とし穴と解決策)
+- [VM イメージ内に焼き込んだ内容](#vm-イメージ内に焼き込んだ内容)
+- [実行手順](#実行手順)
+- [本番移行前 TODO](#本番移行前に対応すべきtodo)
+- [参考メモ](#参考メモ)
+
+## 目的
+
+- 本番は合計**25億フォトン（1投影5000万 × 50投影）**を GCP 上で実行する（2026-05-01 改定: コスト半減のため当初 100億フォトン×100投影 から縮小）
+- いきなり1億はリスクが高いので、まず **1投影 × 1千万フォトン** で実時間・コストを実測する
+- 実測値から本番の規模と並列数・コストを確定する
+
+## 現在のステータス
+
+**フェーズ**: ステップA完了（自動フロー全段成功）→ ステップB準備中
+
+| 項目 | 状態 |
+|---|---|
+| 1台 × 1千万フォトン 試し打ち（手動回収） | ✅ 完了 (2026-04-24, MIG経由フロー検証済み) |
+| プロジェクト `linectmpi-401502` への移管準備（SA作成・Drive招待・コード対応） | ✅ 完了 (2026-04-27) |
+| Preemptible CPUs quota 100 vCPU 承認 | ✅ 完了 (2026-04-27 承認確認) |
+| イメージ複製 → テンプレ作成 → MIG作成 | ✅ 完了 (2026-04-27, `linectmpi-401502` 側) |
+| 1回目 自動アップロード試し打ち (1千万フォトン) | ❌ 計算完走・アップロード失敗 (2026-04-27)。CSVロスト |
+| 2回目 自動アップロード試し打ち (100万フォトン) | ❌ 計算完走・アップロード失敗 (2026-04-28)。VMは保護で残存→手動検証 |
+| 既存VM上で merge/upload 修正版の手動検証 (`linectmpi-9k1r`, 100万フォトン) | ✅ 完了 (2026-04-28)。計算→merge→upload→Drive到着 全段OK |
+| 3〜4回目 自動フロー試し打ち（焼き直しイメージ使用） | ❌ ImportError on googleapiclient で連続失敗 (2026-04-29〜30)。落とし穴 #14 参照 |
+| **5回目 自動フロー試し打ち（pip install を起動スクリプトに移行）** | ✅ **完了 (2026-04-30)**。計算→merge→upload→VM自動削除 全段成功 |
+| **5台規模 multi-instance フロー試し打ち（ステップB, par_pntm=4 検証込み）** | ✅ **完了 (2026-05-01)**。5台同時 計算→merge→upload→VM自動削除 全段成功 |
+| 本番25台 × 4バッチ実行（ステップC） | 🔜 次の作業 |
+
+## 最終方針（確定）
+
+| 項目 | 値 |
+|---|---|
+| マシンタイプ | `c3-highcpu-4` (4 vCPU, 8GB) |
+| プロビジョニング | **Spot VM** |
+| 中断時アクション | **STOP**（DELETEはMIG非対応のため不可） |
+| ゾーン | `us-central1-b` |
+| ファントム | `two_metals.nml`（イメージ側の `.env` に焼き込み） |
+| プロジェクトID | `linectmpi-401502`（2026-04-27 移管。元は `notion-automation-442102`） |
+| 認証方式 | GCEインスタンスにアタッチした SA の ADC 経由（キーJSON不要） |
+| Drive用SA | `linectmpi-uploader@linectmpi-401502.iam.gserviceaccount.com` |
+| 本番並列度 | **25台**（quota 100 vCPU 上限。本番50投影は 25台 × 2バッチ × par_xstp=1 で処理） |
+| 本番規模 | **50投影 × 5000万フォトン**（2026-05-01 改定。コスト半減のため100投影×1億から縮小） |
+
+## 試し打ち実測結果（1投影 × 1千万フォトン × 4コア）
+
+### ベースVM 直接実行 (2026-04-24)
+
+`linectmpi-base` 上で `docker-compose up` 直接実行:
+
+| 指標 | 値 |
+|---|---|
+| wall-clock (`real`) | **103分 0秒** |
+| CPU合計 (`user`) | 205分 16秒 |
+| 並列効率 | user/real ≈ 50% |
+| 出力CSV | `000.00.csv` 3.0 MB |
+| egs5job.pic | 2.8 MB |
+| 出力合計/投影 | 約 6 MB |
+
+### MIG経由フロー実行 (2026-04-24)
+
+`cloud_shell.py` の一連フロー（MIG resize → list-instances → SSH で計算投入 → done ポーリング → 手動回収）を 1台 × 1千万フォトン で完走確認済み。
+
+| 指標 | MIG経由 (今回) | ベースVM直接 (前回) | 差分 |
+|---|---|---|---|
+| wall-clock (`real`) | **102分 40秒** | 103分 00秒 | -20秒 |
+| user time | 204分 41秒 | 205分 16秒 | -35秒 |
+| sys time | 0.2秒 | - | - |
+| 並列効率 (user/real) | 49.8% | 50% | 同等 |
+
+→ MIG 自動フローのオーバーヘッドは無視できるレベル。ベースVM手動実行と同等性能。
+
+### 手動検証 (2026-04-28, `linectmpi-9k1r`, 100万フォトン, NUM_CPU=2)
+
+merge/upload 修正版の動作確認のため、既存VM上で 100万フォトン × 1投影を手動実行。
+
+| 指標 | 値 |
+|---|---|
+| wall-clock (`real`) | **14分11秒** |
+| CPU合計 (`user`) | 28分16秒 |
+| 並列効率 (user/real) | 約2.0倍 |
+| `TOTAL FRACTION` | 1.000000 ×2ブロック（エネルギー保存OK） |
+| `Ncount` | 500,001 ×2ブロック ≈ 100万 |
+| 出力 `000.00.csv` | 3,079,000 B（1千万フォトン時と同サイズ：列数×サンプリング数で決まるため） |
+| `egs5job0.000000.pic` | 2,814,587 B |
+
+#### merge / upload 動作検証
+
+| 項目 | 結果 |
+|---|---|
+| `python3 mergecsv.py /home/zdc/lineCTmpi/core/share/` | ✅ `000.00.csv` → `000.csv` (1,043,306 B) に結合・入力削除 |
+| 同コマンド再実行 (落とし穴 #11 の再発確認) | ✅ `000.csv` の md5 不変、自己削除されない |
+| `python3 upload.py /home/zdc/lineCTmpi/core/share/` | ✅ ADC 認証成功、File ID 取得 |
+| Drive 側ファイル確認 (API `files().get()`) | ✅ `000.csv` (1,043,306 B) が共有フォルダ配下に存在 |
+
+→ 落とし穴 #10 (アップロード経路3段階バグ)、#11 (再実行時自己削除) の修正が機能していることを確認。
+
+### 自動フロー全段試し打ち (2026-04-30, `linectmpi-hht4`, 100万フォトン, NUM_CPU=2)
+
+cloud_shell.py の起動スクリプトに `pip install` チェックを組み込んだ修正版（落とし穴 #14 対応）の動作検証。
+
+| 項目 | 結果 |
+|---|---|
+| VM起動・git reset --hard origin/develop | ✅ 成功 |
+| Google API ライブラリ起動時 install (`Successfully installed google-api-python-client-2.52.0` ほか20個) | ✅ 成功 |
+| 計算 (docker-compose up → done 出現) | ✅ 完走 |
+| merge (`mergecsv.py`) | ✅ `000.csv` (1,043,306 B 想定) 生成 |
+| upload (`upload.py`) → File ID 取得 | ✅ `1CyoJSV-TI-hzrMD1tZaFiMPEpUe7Mpzb` |
+| VM 自動削除 (`__delete_instance`) | ✅ `Instance linectmpi-hht4 calculation done. Uploaded to Drive and instance deleted.` |
+
+→ 計算→結合→Driveアップロード→VM自動削除まで人間の介入ゼロで完走。**ステップA完了**。
+
+#### 100万フォトンの想定外の遅さ
+
+1千万フォトン時 102分 ÷ 10 = 10分のはずが 14分11秒（+40%）。並列効率も 2.0倍止まり（前回は 49.8%≒2.0/4 で同等）。フォトン数依存しない初期化オーバーヘッド（プログラム起動・粒子データ読み込み）が小規模実行で目立っているのが主因と推測。本番1億フォトン規模では誤差レベルになる見込み。
+
+#### 出力ファイル（`output/gcp_mig_test_1e7/share/`）
+
+| ファイル | サイズ | 予測値 | 判定 |
+|---|---|---|---|
+| `000.00.csv` | 3,079,000 B (3.0 MB) | 3.0 MB | 完全一致 |
+| `egs5job0.000000.pic` | 2,814,587 B (2.8 MB) | 2.8 MB | 完全一致 |
+| `egs5job.log` | 246 KB | - | - |
+| `vmstat.log` | 56 KB | - | - |
+| `done` | 0 B | - | 完了マーカー |
+| 合計 | 約 6 MB/投影 | 約 6 MB | 完全一致 |
+
+CSV は **512 列 × 1,000 行**。512 = `par_ttms`（検出器ピクセル数）、1,000 = 投影内サンプリング数。
+
+#### 計算品質チェック（`egs5job.log` より）
+
+- `TOTAL FRACTION = 1.000000` → エネルギー保存則が完全に成立
+- `Ncount = 5,000,001` × 2 ブロック = 1千万ケース、`par_hist=10000000` と一致
+- `TVAL ERROR` 警告は EGS5 既知の境界面丸め警告。`TOTAL FRACTION=1.0` が成立しているため計算結果には影響なし
+
+#### CPU 利用率（vmstat 観察）
+
+- 定常期: `us=50, id=50` で **CPU 使用率 50%**
+- `par_pntm=3`（3スレッド） / 4 vCPU 構成と整合
+- 1コア余っている → `par_pntm=4` に上げれば最大 25% 高速化の可能性あり（要実測）
+
+### 5台 multi-instance 試し打ち (2026-05-01, par_pntm=4 検証込み)
+
+ステップB: 5台 × 1投影 × 100万フォトン × `par_xstp=1` × `par_pntm=4` の自動フロー検証。
+
+| 項目 | 結果 |
+|---|---|
+| MIG resize → 5台起動 | ✅ 5台すべて RUNNING |
+| `git reset --hard origin/develop` | ✅ 5台とも `HEAD is now at b7b2ef3` |
+| Google API ライブラリ起動時 install | ✅ 5台とも `Successfully installed google-api-python-client-2.52.0` ほか20個 |
+| 計算 (docker-compose up → done 出現) | ✅ 5台とも完走 |
+| `par_pntm=4` での Open MPI 動作 | ✅ slot エラー無し（落とし穴 #13 の再発なし） |
+| merge (`mergecsv.py`) | ✅ 5台とも成功 |
+| upload (`upload.py`) → File ID 取得 | ✅ 5ファイル分すべて取得（投影番号 0〜4 が衝突せず Drive に並んだ事実が `par_istp` 自動インクリメント正常動作の間接証拠） |
+| VM 自動削除（`Updated ... instanceGroupManagers/linectmpi` × 5） | ✅ 5台すべて削除 |
+| 完了出力 `Instance ... calculation done. Uploaded to Drive and instance deleted.` | ✅ 5台分すべて出力 |
+| 総所要時間 (ローカル `cloud_shell.py` 起動 → 全台終了) | **約 16〜17分** |
+
+→ 計算→結合→Driveアップロード→VM自動削除まで5台並列で人間の介入ゼロで完走。**ステップB完了**。
+
+#### 取得した File ID（投影番号 0〜4 のいずれかに対応）
+
+```
+linectmpi-sx1k → 11RY0I13f-RpuXLZI_AsxryorE9I4ZtBQ
+linectmpi-3j8t → 10VWyy5lBFIUo6WXtAWPVYGRZTV4qFuMH
+linectmpi-k2gf → 1tHhIY1UqUs9BNR7seOPHLfGidIJ_Ft1v
+linectmpi-6xbg → 1-eUW_uhKvkFNOBe_aAFCWqGELX_Px1YH
+linectmpi-l087 → 1hUpn6fGgHNzLfuexOardwAQ8vMONJQlV
+```
+
+#### 観察事項
+
+- **par_pntm=4 は安定動作**: 落とし穴 #13 で `NUM_CPU=4` 手動セット時に MPI が落ちた件は、`/proc/cpuinfo` の `cpu cores=2` を `NUM_CPU` に渡しているのとは別軸。`par_pntm` (≒ EGS5 内部スレッド数) は MPI の slot 制約とは独立しており、4 vCPU を全使用しても問題なし。CPU使用率の実測は次回観察候補
+- **初回SSH 失敗による1台のみリトライ**: `linectmpi-3j8t` で `__calculation` の初回 SSH が `plink.exe exited with return code [1]` を返し、ポーリングループの再試行で2回目に成功（`Instance linectmpi-3j8t not ready. Skipping...` → `1/5 Instance linectmpi-3j8t ready.`）。VM起動直後は SSH デーモンが完全に立ち上がっていないことがあるため、`run()` 内の `while calc_result != 0` ループが正しく機能した事例
+- **plink.exe ノイズ**: `__judge_calc_complete` のポーリング中に大量の `ERROR: (gcloud.compute.ssh) ... plink.exe exited with return code [1]` が出力される（落とし穴 #9 既知）。本物の SSH 失敗ではなく、`test -e done` が done 不在で 1 を返した結果。動作には影響なし
+- **pip install オーバーヘッド**: 5台すべてで起動時に約 30〜60秒の install。本番25台×4バッチ＝100回起動だと合計 50〜100分の累積オーバーヘッドだが、許容範囲
+- **総所要時間の妥当性**: 単独 100万フォトン手動検証 14分11秒に対し、5台並列で 16〜17分。並列化のオーバーヘッドはほぼ MIG resize / pip install / SSH リトライのみで、計算自体は完全並列化されている
+
+## 本番見積もり（実測ベース、2026-05-01 改定: 規模半減版）
+
+### 計算規模
+
+- 本番1投影 (5000万フォトン) ≈ **8.55 時間/投影**（ステップA実測 102分40秒/1千万フォトンを線形外挿）
+- 総投影数: **50**（コスト半減のため100→50に削減）
+- 総vCPU時間: **約 428 VM時間**（≒ 50投影 × 8.55時間 × 1台/投影）
+- 総出力サイズ: 約 300 MB
+- `par_pntm=4` の高速化効果（1コア余り解消で最大25%）は本番初期に実測する。下表は**保守側で効果ゼロ**と仮定
+
+### 並列度シナリオ
+
+「並列度」= 1バッチで同時稼働するVM数、「par_xstp」= 1台が直列処理する投影数、「バッチ数」= 50投影 ÷ (並列度 × par_xstp)。
+quota=100 vCPU 制約で並列度 ≤ 25。**現行計画は `par_xstp=1` で1台あたり連続稼働 約8.5時間（中断耐性優先）**。
+
+| シナリオ | 並列度 | par_xstp | 必要 vCPU | バッチ数 | 1バッチ実時間 | 総実時間 | 備考 |
+|---|---|---|---|---|---|---|---|
+| 50台同時（理想） | 50 | 1 | 200 | 1 | 約8.5時間 | **約8.5時間** | quota 200 申請が必要 |
+| **25台 × 2バッチ × par_xstp=1（現行計画）** | 25 | 1 | 100 | 2 | 約8.5時間 | **約17時間** | quota 100 で実行可。1台 8.5時間連続稼働 → Spot中断リスク低 |
+| 25台 × 1バッチ × par_xstp=2 | 25 | 2 | 100 | 1 | 約17時間 | **約17時間** | バッチ1回で済むがリスク2倍。中断時ロスト 17h 分 |
+
+→ 規模半減（5000万フォトン×50投影）と `par_xstp=1` への変更で、旧計画（1億×100投影、`par_xstp=4`、1台連続68時間）と比べて：
+- **総実時間 272h → 17h**（約16倍高速、規模半減＋並列度フル活用）
+- **1台連続稼働 68h → 8.5h**（中断遭遇率が大幅低下）
+- **中断時ロスト 68h → 8.5h**（1投影分のみ）
+
+### コスト
+
+- **Spot推定コスト: 約 $35**（428 VM時間 × $0.08/h-VM 相当, 旧計画 $69 から半減）
+  - 旧計画 100投影×1億 → 1,720 VM時間, ノート上の見積 $69
+  - 今回 50投影×5000万 → 428 VM時間, 規模半減で **約 $35**（vCPU時間が4倍差なので比例計算）
+  - 課金単位（per-VM か per-vCPU か）は本番直前に GCP billing で実績確認推奨
+- オンデマンド換算: 約 $118（旧 $237 から半減）
+
+### Spot 中断リスクの見積もり（重要、2026-05-01 改定で大幅低下）
+
+- 現行計画は1台あたり **連続8.5時間稼働**（旧計画 68h から大幅短縮）。us-central1-b Spot の中断率は連続24時間未満なら比較的低く、**バッチあたり中断ゼロも十分現実的**
+- **中断VMの計算はゼロからやり直し**（チェックポイントなし、進捗0で再開不可）。ただし `par_xstp=1` のためロストは1投影分（8.5h）のみで済む
+- ~~**`cloud_shell.py` には中断検知機構なし**~~ → **対応済み (2026-05-01)**: `run()` の done ポーリングループ内で、SSH 失敗時に `gcloud compute instances describe --format="value(status)"` を呼び、`RUNNING` 以外（`STOPPING`/`TERMINATED`/`STOPPED`/`SUSPENDING`/`SUSPENDED` または describe 自体が失敗）を検知したら `[INTERRUPTED]` ログを出してループを脱出、MIG 側からも `delete-instances` で残骸ディスクを明示回収する（[cloud_shell.py:158-174, 211-250](../gcp_client/cloud_shell.py#L158-L174)）。これで「68時間連続稼働中に中断 → 該当タスクが永久ブロック → 他25台分の `asyncio.gather` も完了しない」という最悪ケースを回避できる
+- **残課題（TODO 7-8）**: 中断検知後の **再投入** は依然手動。スクリプトとしては当該投影番号 (`par_istp` 範囲) を再キックする運用が必要。`par_xstp` を 2 に下げる（1台連続34時間に短縮）、ゾーン分散、中断検知付き再投入スクリプト整備が候補
+
+## 構築済みリソース
+
+### `notion-automation-442102` 側（旧、移管後に削除予定）
+
+| リソース | 名前 | 備考 |
+|---|---|---|
+| カスタムイメージ | `linectmpi-image-v1` (family=`linectmpi`) | 30GB, Rocky Linux 8 |
+| インスタンステンプレート | `linectmpi-c3h4-spot` | SA=default, scope=cloud-platform |
+| MIG | `linectmpi` (zone=us-central1-b, size=0) | 試し打ち実績あり |
+
+### `linectmpi-401502` 側（運用中）
+
+| リソース | 状態 |
+|---|---|
+| サービスアカウント `linectmpi-uploader@...` | ✅ 作成済み (2026-04-27) |
+| Drive 共有フォルダへのSA招待 | ✅ 完了 (コンテンツ管理者) |
+| カスタムイメージ `linectmpi-image-v2` (family=`linectmpi`) | ✅ 作成済み (2026-04-29)。Google API libs は焼き込まず起動時 install |
+| インスタンステンプレート `linectmpi-c3h4-spot` | ✅ 作成済み (2026-04-27, SA + Drive scope付き) |
+| MIG `linectmpi` (zone=us-central1-b, size=0) | ✅ 作成済み (2026-04-27)、自動フロー実績あり |
+
+## 踏んだ落とし穴と解決策
+
+### 1. Dockerfile の `chmod /app/share` が空ディレクトリで失敗
+
+- **症状**: `git clone` 直後の VM で `docker-compose build` が「`/app/share`: No such file or directory」で止まる
+- **原因**: `core/share/` は空ディレクトリで git に追跡されないため clone 後に存在しない。一方 [core/Dockerfile:18](../core/Dockerfile#L18) は `chmod -R 777 /app/share` を要求
+- **暫定対策**: VM上で `mkdir -p core/share` してから build
+- **根本対策（TODO）**: `core/share/.gitkeep` をコミット、または Dockerfile を `RUN mkdir -p /app/share` にする
+
+### 2. share ディレクトリのパーミッション問題で `touch done` が失敗
+
+- **症状**: コンテナが `touch: cannot touch '/app/share/done': Permission denied` で異常終了
+- **原因**: `docker-compose.yml` がホスト `share/` をコンテナ `/app/share` にマウント。ホスト側は `zdc:zdc` (UID 1001) 所有、コンテナ内実行ユーザーは `user` (UID 1000) で不一致。ビルド時の `chmod 777` はマウントで上書きされるため無効
+- **暫定対策**: ホスト側で `chmod 777 share`
+- **根本対策（TODO）**: Dockerfile の `useradd` で UID を 1001 に固定するか、docker-compose.yml に `user: "1001:1001"` 追加
+
+### 3. Spot × DELETE × MIG が禁止組み合わせ
+
+- **症状**: MIG作成時に `Spot virtual machines with termination action set to DELETE cannot be used with Managed Instance Groups.` エラー
+- **原因**: MIGは自動復旧を前提とするため、中断時にVM削除される構成は許可されない
+- **対策**: `--instance-termination-action=STOP` に変更
+- **副作用**: 中断VMのディスクが残って課金されるリスク。正常完了時は `__delete_instance()` で明示削除するので問題なし。中断時は手動クリーンアップ必要
+
+### 4. PowerShell の gcloud 引数クォート問題
+
+- **症状 A**: `--format='value(instance)'` のシングルクォートが PowerShell で消えて `(instance)` がエラー
+- **症状 B**: `gcloud compute ssh ... --command='...'` のシングルクォートが消えて `unrecognized arguments` エラー
+- **原因**: PowerShell/cmd.exe はシングルクォートを引数の一部として渡さない（Linux bashとは違う挙動）。Linuxで開発されたスクリプトがWindowsで壊れる典型パターン
+- **対策**: `subprocess.run(shell=True)` + 文字列 → **`subprocess.run(shell=False)` + リスト引数** に全面書き換え。外側シェルを経由しないのでWindows/Linux問わず安全
+
+### 5. `gcloud compute instance-groups managed list-instances` の `value(instance)` が zone を返す
+
+- **症状**: `--format="value(instance)"` の出力が `us-central1-b`（ゾーン名）になる
+- **原因**: gcloud の `instance` フィールドは instance名ではなく zone を指している様子
+- **対策**: `--format="value(name)"` に変更。こちらは正しくインスタンス名（例: `linectmpi-kv2n`）を返す
+
+### 6. cloud_shell.py のリモートスクリプト内 変数名 typo
+
+- **症状**: `.env` の `CLOUD_SHELL_INSTANCE_NAME=` が空のまま置換される
+- **原因**: [cloud_shell.py:51](../gcp_client/cloud_shell.py#L51) で `CLOUD_instance=` と定義、[:65](../gcp_client/cloud_shell.py#L65) で `${CLOUD_INSTANCE}` を参照しているため変数未定義
+- **対策**: `CLOUD_INSTANCE=` に統一（修正済み）。計算本体への影響はないが、書き換え目的が無意味化していた
+
+### 7. `N_CORE=$(grep -m 1 "cpu cores" /proc/cpuinfo ...)` が c3 で取れない可能性
+
+- **状況**: c3 (Sapphire Rapids) はハイパースレッディング無効なので `/proc/cpuinfo` に `cpu cores` 行がない可能性がある
+- **対策**: `nproc` フォールバックを追加（`if [ -z "$N_CORE" ]; then N_CORE=$(nproc); fi`）
+- **実測 (2026-04-28)**: c3-highcpu-4 では `cpu cores` 行は **存在し、値は `2`**（ハイパースレッディングが論理的に有効で、4 vCPU = 2 物理コア×2スレッド扱いに見える）。一方 `nproc` は 4 を返す。`cloud_shell.py` のロジックは `cpu cores` 優先なので **NUM_CPU=2 がセットされる**
+- **派生**: 手動検証で誤って `NUM_CPU=4` にセットして起動すると Open MPI が `There are not enough slots available (4 requested)` で **即終了**する。落とし穴 #13 参照
+
+### 8. Windows で `subprocess.run(['gcloud', ...], shell=False)` が `FileNotFoundError`
+
+- **症状**: `FileNotFoundError: [WinError 2] 指定されたファイルが見つかりません` で `make_instances()` の最初の呼び出しが失敗
+- **原因**: Windows 上の `gcloud` は `gcloud.cmd` バッチファイル。Python の `subprocess` は `shell=False` だと `.cmd` を直接 `CreateProcess` できない（`.exe` のみ対応、PATHEXT 解決もしない）
+- **対策**: プラットフォーム判定で Windows のときだけコマンド名を切り替え。さらに次の問題9を踏んだので最終的には bundled python 直叩きへ
+
+### 9. `gcloud.cmd` 経由の SSH で `--command=...` の長文がリモート bash に壊れて到達
+
+- **症状**: リモート bash で `syntax error near unexpected token '&'` エラー、コマンド末尾に `& goto lastline 2>NUL || C:\Windows\system32\cmd.exe /C exit 0` というバッチ断片が混入
+- **原因**: `gcloud.cmd` の最終行は `"%CLOUDSDK_PYTHON%" ... "%~dp0..\lib\gcloud.py" %* & goto lastline 2>NUL || ...` という構造。`%*` で展開された引数に `&` や `;` が含まれると、cmd.exe の引数解釈時にバッチの後続トークンが引数文字列に巻き込まれる
+- **対策**: `gcloud.cmd` をバイパスして bundled python (`platform/bundledpython/python.exe`) で `lib/gcloud.py` を直接起動。`subprocess.run` には `[python_exe, '-S', gcloud_py, 'compute', ...]` の形でリスト渡し
+- **実装**: [cloud_shell.py:9-43](../gcp_client/cloud_shell.py#L9-L43) の `_resolve_gcloud_invocation()` で SDK ルート → bundled python → `lib/gcloud.py` を解決。Linux/Mac では従来の `['gcloud']` を返す
+- **副次効果**: `__judge_calc_complete` のポーリング中に gcloud が `plink.exe exited with return code [1]` の長文エラーを毎回吐く。これは bash の `test -e` が done 不在で 1 を返した結果を gcloud が「SSH 失敗」と扱うのが原因で、ループ動作自体は正常。ノイズ削減したい場合は `test -e ... && echo DONE || echo NOTYET` 方式 + stdout 判定への書き換えが候補（未対応）
+
+### 10. アップロード経路の3段階バグ（2026-04-27〜28 試し打ちで連続発覚）
+
+- **症状**: 計算は完走するが、`__merge_and_upload` が ImportError → `__delete_instance` が無条件実行されてCSVごとVM消滅
+- **原因（3点同時）**:
+  1. `cloud_shell.py:run()` が `__merge_and_upload` の戻り値を見ずに `__delete_instance` を呼ぶ設計
+  2. `upload.py` の `sys.path.append("../gcp_client/parameter")` がディレクトリ名扱いで parameter 解決不可
+  3. VMシステム python3 に `numpy` も `googleapiclient` も未インストール
+- **対策**:
+  - `cloud_shell.py`: upload 戻り値が0以外ならVM残してエラー出力（[cloud_shell.py:186-198](../gcp_client/cloud_shell.py#L186-L198)）
+  - `upload.py`: `__file__` 基準で `../gcp_client` を sys.path 追加。空 all_files / HttpError は `sys.exit(1)`
+  - `mergecsv.py`: numpy 依存排除（純Python加算）
+  - VMに `pip3 install --user google-api-python-client google-auth google-auth-httplib2 google-auth-oauthlib` を実行（イメージ再作成時に焼き込み必要）
+
+### 11. `mergecsv.py` 再実行時の出力ファイル自己削除バグ
+
+- **症状**: 2回目の試し打ちで merge 後 upload が空ファイルで失敗。確認すると `000.csv` が消えていた
+- **原因**: 入力 `XXX.NN.csv` を `XXX.csv` に結合 → 入力削除する設計。再実行すると既結合済み `000.csv` も glob でヒット → `rsplit('.', 2)[0]` が `''` を返し、結局出力ファイル自身を削除対象に含めてしまう
+- **対策**: glob 段階でドット数2未満のファイルを除外。加えて削除直前に出力パスとの絶対パス比較で二重保護（[mergecsv.py:11-15, 70-74](../gcp_VM/mergecsv.py#L11-L15)）
+
+### 12. VM側コードを最新に保つ仕組みが無かった
+
+- **症状**: イメージ焼き直しなしでコード修正を反映する手段が無く、修正のたびに再焼きを強いられる
+- **対策**: `__calculation` のリモートスクリプト先頭で `cd ~/lineCTmpi && git fetch origin develop && git reset --hard origin/develop` を実行（[cloud_shell.py:99-105](../gcp_client/cloud_shell.py#L99-L105)）。`set -e` で失敗時は計算に進ませない
+- **前提**: リポジトリは public（認証不要）
+
+### 14. イメージへのpip install焼き込みが安定して反映されず、Google APIライブラリ未導入のVMが起動
+
+- **症状**: TODO 4-3 の3〜4回目自動フロー試し打ちで連続して `ModuleNotFoundError: No module named 'googleapiclient'` が再発。手動検証（既存VM上）では `--prefix=/usr` で `/usr/lib/python3.6/site-packages/` に確実にインストールでき、import 検証も通っていたが、そのVMから焼き直したイメージ → MIG経由起動した新VMには Google API パッケージ群が**消えていた**
+- **観察された具体的事象**:
+  - ベースVM側 `/usr/lib/python3.6/site-packages/` に20個近い google* 系ディレクトリが `Apr 29 04:07` のタイムスタンプで存在
+  - その後 `gcloud compute instances stop` → ディスク `READY` 確認 → `gcloud compute images create --source-disk=... --force` を実行（コマンドは "Created" を返す）
+  - ところが新イメージから起動したVMには google* が**1つも含まれない**
+  - VM内の `lineCTmpi/-o`（手動検証時に作った副産物、その後削除済み）が**復活している** → イメージ作成時に「クリーン前の状態」をスナップショットしてしまっている兆候
+  - 同名の `linectmpi-image-v1` を `delete → create` で入れ替えても、`linectmpi-image-v2` という新名で作っても**同じ症状が再発**
+- **原因（仮説）**: GCEの `images create --source-disk=... --force` がディスクの「直前のスナップショット時点（fsync前？）」を取得している、もしくは `pip install` の書き込みが何らかの理由で stop 時にディスクへ flush されない。`sudo sync` を install 直後に実行しても解消せず、再現条件を完全には特定できなかった
+- **対策**: **イメージへのpip install焼き込みを完全にやめ、cloud_shell.py の VM 起動スクリプトに `pip install` チェックを組み込む**。`__calculation` のリモートスクリプト先頭で `python3 -c 'import googleapiclient'` が失敗した場合のみ `sudo pip3 install --prefix=/usr google-api-python-client google-auth google-auth-httplib2 google-auth-oauthlib` を実行（[cloud_shell.py:99-115](../gcp_client/cloud_shell.py#L99-L115)）
+- **副次効果**: Spot中断後の同ディスク再利用やイメージ更新ミスでも、起動時に毎回 install 状態を保証できるため再現性が大幅向上。代わりに VM 起動時に約 30秒〜1分 の install オーバーヘッドが発生（許容範囲）
+- **検証**: 2026-04-30 の5回目試し打ちで全段成功（`Successfully installed google-api-python-client...` → `File ID: 1CyoJSV-TI-hzrMD1tZaFiMPEpUe7Mpzb` → `Instance ... calculation done. Uploaded to Drive and instance deleted.`）
+
+### 13. NUM_CPU=4 で Open MPI が `slots available` エラーで即終了
+
+- **症状**: 手動で `.env` を `NUM_CPU=4` にセットして `docker-compose up` すると `There are not enough slots available in the system to satisfy the 4 slots that were requested` エラーで即時 exit code 0（コンテナ自体は終了するが計算は走らない。`egs5job.log` に上記エラーのみ、`time.txt` の `real=0.017s`、`.pic` 未生成）
+- **原因**: c3-highcpu-4 では `/proc/cpuinfo` の `cpu cores` が **2**（実コア=2、HT で 4 vCPU 見え）。Open MPI のデフォルトの slot 数は実コア数 = 2 を採用する。`NUM_CPU=4` で `mpirun -n 4` 相当を要求すると、slot が 2 しかない物理的制約と矛盾し起動失敗
+- **対策**: **`NUM_CPU=2` で実行する**。`cloud_shell.py` 自動フローは `cpu cores` 値を読むので 2 を入れる仕様で正しい。手動検証時のみ要注意
+  - `nproc` (=4) 値を採用したい場合は `mpirun --use-hwthread-cpus` か `--oversubscribe` のオプション追加が必要
+- **実測 (2026-04-28)**: `NUM_CPU=2` + `PAR_PNTM=3`（3スレッド要求） で完走確認済み。oversubscribe 警告なしで動作した（落とし穴 #7 のとおり MPI 認識上は 2 スロットだが、実 vCPU=4 あるためスレッド3はOSスケジューラ任せで問題なく動く）
+- **派生 TODO**: 試し打ち実測 wall-clock が 1千万フォトン (`PAR_PNTM=3` 仕様) で 102分 → 100万フォトン (今回, `PAR_PNTM=3`) で 14分11秒。線形換算なら 10分のところ +40% 遅い。`NUM_CPU=2` の影響かは未切り分け（小規模ゆえの初期化オーバーヘッド比率が大きい可能性も）
+
+## VM イメージ内に焼き込んだ内容
+
+- OS: Rocky Linux 8
+- ユーザー: `zdc` (UID 1001, wheel/docker/google-sudoers グループ)
+- Docker CE 26.1.3 + docker-compose v2.29 (単体バイナリ `/usr/local/bin/docker-compose`)
+- git 2.43
+- リポジトリ: `https://github.com/Hijiki38/lineCTmpi.git` (branch=develop) を `/home/zdc/lineCTmpi` に clone
+- `core/.env` を two_metals 焼き込み済み（PAR_PHANTOM_FILE=./data/phantoms/two_metals.nml）
+- `slegs5` Dockerイメージを事前ビルド済み
+- `core/share/` を `chmod 777` 済み
+- 試し打ち時の出力は削除済み
+- **Google API ライブラリ系（google-api-python-client / google-auth / google-auth-httplib2 / google-auth-oauthlib）は焼き込まない**。落とし穴 #14 の通りイメージへの反映が安定しなかったため、cloud_shell.py の起動スクリプト側で毎回 `sudo pip3 install --prefix=/usr` を実行する運用に切り替えた
+
+## プロジェクト移管 / SA 認証方針（2026-04-27）
+
+**経緯**: 本来 `linectmpi-401502` プロジェクトで運用すべきところ、誤って `notion-automation-442102` で構築していた。Drive自動アップロード対応（案A: ADC方式採用）と合わせて、プロジェクト移管も同時実施する。
+
+### 認証方式（案A: ADC）
+
+- VM側でキーJSONを持たず、**GCEインスタンスにアタッチしたSAをADC経由で利用**
+- `google.auth.default(scopes=[...])` で自動取得
+- メリット: キーJSON漏洩リスクなし、ローテーション不要、VMイメージの再焼き不要
+- SA: `linectmpi-uploader@linectmpi-401502.iam.gserviceaccount.com`
+- Drive 共有フォルダ（ID: `1pQ5akiTWsCuqtgw3ZbTBQFIR_xmvvp1L`）に SA を「コンテンツ管理者」で招待済み
+
+### 実施済み作業（2026-04-27）
+
+- ✅ `linectmpi-401502` 側で `linectmpi-uploader` SA作成
+- ✅ Drive 共有ドライブに SA を招待（コンテンツ管理者）
+- ✅ [gcp_VM/upload.py](../gcp_VM/upload.py): `service_account.Credentials.from_service_account_file()` → `google.auth.default(scopes=...)` に変更
+- ✅ [gcp_client/parameter.py](../gcp_client/parameter.py): `keyfile_path` 削除、`project_id = 'linectmpi-401502'` 追加
+- ✅ [gcp_client/cloud_shell.py](../gcp_client/cloud_shell.py): `__merge_and_upload` / `__delete_instance` のコメントアウト解除、各 gcloud コマンドに `--project={project_id}` フラグ追加
+- ✅ Preemptible CPUs quota 100 vCPU 増加申請（us-central1, 2026-04-27 申請）
+
+### quota承認後に実施する作業
+
+1. **イメージ複製**: `notion-automation-442102:linectmpi-image-v1` → `linectmpi-401502:linectmpi-image-v1`
+   ```bash
+   gcloud compute images create linectmpi-image-v1 \
+     --source-image=linectmpi-image-v1 \
+     --source-image-project=notion-automation-442102 \
+     --family=linectmpi --project=linectmpi-401502
+   ```
+2. **インスタンステンプレート作成**（SA + Drive scope付き）
+   ```bash
+   gcloud compute instance-templates create linectmpi-c3h4-spot \
+     --machine-type=c3-highcpu-4 \
+     --image-family=linectmpi \
+     --provisioning-model=SPOT \
+     --instance-termination-action=STOP \
+     --service-account=linectmpi-uploader@linectmpi-401502.iam.gserviceaccount.com \
+     --scopes=https://www.googleapis.com/auth/drive \
+     --boot-disk-size=30GB \
+     --project=linectmpi-401502
+   ```
+3. **MIG 作成**: `linectmpi`、size=0、zone=us-central1-b
+   ```bash
+   gcloud compute instance-groups managed create linectmpi \
+     --template=linectmpi-c3h4-spot --zone=us-central1-b --size=0 \
+     --project=linectmpi-401502
+   ```
+4. **1台で完全フロー試し打ち** → Drive にCSVが自動アップロードされることを確認
+5. **旧プロジェクト側リソース削除**（MIG → テンプレ → イメージの順、最終確認後）
+
+## 実行手順
+
+### 試し打ち用 parameter.py
+
+```python
+project_id = 'linectmpi-401502'
+num_instance = 1
+par_ttms    = 512
+par_step    = 1
+par_hist    = 10_000_000
+par_istp    = 0
+par_xstp    = 1
+par_pntm    = 3
+par_beam    = 1
+```
+
+### 実行コマンド
+
+```powershell
+cd C:\Users\owner\workspace\ctsimulator_egs5\gcp_client
+python cloud_shell.py
+```
+
+完了時の挙動: 計算終了 → CSV結合 → Drive自動アップロード → インスタンス自動削除（2026-04-27 以降）。
+
+### 実行中の監視（手動）
+
+```powershell
+# プロジェクトを切替（cloud_shell.py 起動時の gcloud には --project が付くが、手動 ssh には付かないため）
+gcloud config set project linectmpi-401502
+
+# 現在のVM確認
+gcloud compute instance-groups managed list-instances linectmpi --zone=us-central1-b
+
+# .env 確認
+gcloud compute ssh zdc@<instance> --zone=us-central1-b --command="cat /home/zdc/lineCTmpi/core/.env"
+
+# docker状態
+gcloud compute ssh zdc@<instance> --zone=us-central1-b --command="docker ps; tail -30 /home/zdc/compose.log"
+
+# share の中身
+gcloud compute ssh zdc@<instance> --zone=us-central1-b --command="ls -la /home/zdc/lineCTmpi/core/share/"
+```
+
+### 異常時の手動回収（参考）
+
+自動アップロードが失敗した場合のフォールバック手順:
+
+```powershell
+$inst = gcloud compute instance-groups managed list-instances linectmpi --zone=us-central1-b --format="value(name)"
+mkdir C:\Users\owner\workspace\ctsimulator_egs5\output\manual_recover -Force
+gcloud compute scp --recurse zdc@${inst}:/home/zdc/lineCTmpi/core/share C:\Users\owner\workspace\ctsimulator_egs5\output\manual_recover --zone=us-central1-b
+gcloud compute instance-groups managed resize linectmpi --zone=us-central1-b --size=0
+```
+
+## 本番移行前に対応すべきTODO
+
+優先度順（2026-04-28 更新）:
+
+1. ~~**MIG経由の試し打ちで cloud_shell.py の一連フローが動くか確認**~~ → **完了** (2026-04-24)
+2. ~~**SA発行とDrive連携の準備（案A: ADC方式）**~~ → **コード対応完了** (2026-04-27)
+3. ~~**`__merge_and_upload` と `__delete_instance` の復活**~~ → **完了** (2026-04-27)
+4. ~~**quota承認後のリソース構築**~~ → **完了** (2026-04-27, `linectmpi-401502` 側にイメージ/テンプレ/MIG)
+4-2. ~~**既存VM `linectmpi-9k1r` 上で merge/upload 修正版を手動検証**~~ → **完了** (2026-04-28)
+   - 100万フォトン×1投影で計算→merge→upload→Drive到着 全段OK（落とし穴 #10/#11 修正確認）
+   - 詳細は [手動検証 (2026-04-28)](#手動検証-2026-04-28-linectmpi-9k1r-100万フォトン-num_cpu2) 参照
+4-3. ~~**イメージ再作成 → 自動フロー試し打ち**~~ → **完了 (2026-04-30)**
+   - 当初は「VMに pip install したものをイメージに焼き込む」方針だったが、3〜4回目試し打ちで `ModuleNotFoundError: No module named 'googleapiclient'` が連続再発（落とし穴 #14）
+   - 原因不明のまま「イメージ焼き込み」を諦め、**cloud_shell.py の起動スクリプトに `pip install` チェックを組み込む方式**に変更（[cloud_shell.py:99-115](../gcp_client/cloud_shell.py#L99-L115)）
+   - 5回目試し打ち（2026-04-30）で計算→merge→Driveアップロード→VM自動削除まで全段成功
+   - 当初手順で書いていた `gcloud compute images delete/create` ベースの再焼成は当面**運用しない**（develop ブランチのコード更新は VM 起動時の `git reset --hard origin/develop` で取り込まれるため、イメージ自体の頻繁な更新は不要）
+5. ~~**本番用 parameter.py 作成** (ステップB)~~ → **完了 (2026-05-01)、規模半減版に改定 (2026-05-01)**
+   - 当初: `num_instance=25, par_step=100, par_hist=100_000_000, par_xstp=4, par_pntm=4`
+   - **改定**: `num_instance=25, par_step=50, par_hist=50_000_000, par_xstp=1, par_pntm=4`（コスト半減＋中断耐性向上）
+   - 25台×1投影 = 1バッチで25投影 → 2バッチで総50投影。1台連続稼働 8.5h（旧 68h）
+   - **par_pntm=4 はステップBで動作確認済み**（落とし穴 #13 の MPI slot エラー発生せず）
+   - **重要**: quota=100 vCPU 制約のため25台運用
+6. ~~**5台規模 multi-instance フロー試し打ち** (ステップB)~~ → **完了 (2026-05-01)**
+   - 5台 × 1投影 × 100万フォトン × `par_xstp=1` × `par_pntm=4` で全段成功
+   - 5台同時起動 → 計算 → merge → upload → VM自動削除を 16〜17分で完走
+   - `par_istp` 自動インクリメント・`par_pntm=4` の MPI 動作・5台並列のフロー耐久性すべて確認
+   - 詳細は [5台 multi-instance 試し打ち (2026-05-01)](#5台-multi-instance-試し打ち-2026-05-01-par_pntm4-検証込み) 参照
+7. **バッチ実行運用の整備** (ステップC前)
+   - 1バッチ完了後に `par_istp` を +25 して再実行する手順 or スクリプト化
+   - バッチ間でDriveに残ったCSVと衝突しないファイル命名の確認
+8. **Spot在庫リスクへの対応方針** (ステップC前)
+   - us-central1-b で25台同時取得できなかった時の縮退ルート（zone追加、リトライ間隔調整など）
+9. **`gcloud` ポーリングのノイズ削減**（任意, 後追い可）
+   - `__judge_calc_complete` を `test -e ... && echo DONE || echo NOTYET` + stdout 判定に変更すれば本物のSSHエラーと区別可能になる
+10. **Spot中断時のディスク残骸クリーンアップ運用**（任意, 後追い可）
+    - MIG制約で中断時 STOP のため、停止VMのディスク残留に対応する定期チェック手順整備
+11. **`core/share/.gitkeep` コミットで Dockerfile ビルド問題の根本対応**（任意, 後追い可）
+12. **Dockerfile の UID 問題対応**（任意, 後追い可。ホスト UID 1001 に合わせる）
+13. **quota 200 vCPU への拡張申請**（任意, 50台×2バッチで時間半減したくなった時に）
+
+### 次に手を付ける順序
+
+```
+ステップA: quota承認 → イメージ複製 → テンプレ・MIG作成 → 1台試し打ち（TODO 4） ✅完了 (2026-04-30)
+   │
+   ▼
+ステップB: 本番parameter.py作成 → 5台中規模試し打ち（TODO 5, 6） ✅完了 (2026-05-01)
+   │
+   ▼
+[現在地]
+   │
+   ▼
+ステップC: 25台 × 4バッチで本番実行（TODO 7, 8）
+```
+
+TODO 9〜13 は本番投入と並行 or 後追いで OK。
+
+## 参考メモ
+
+- c3-highcpu-4 のコア当たり処理能力 ≈ 1,667 photon/秒/コア (wall-clock基準)
+- ローカル実測値 (10コア機) ≈ 6,000 photon/秒/コア (wall-clock基準)
+- コア当たりでローカルが約3.6倍速い → c3はコア単価は安いが単体性能は劣る。総vCPU時間コストで評価するのが妥当
+- Spot単価は変動するため、本番実行前に billing で実績確認推奨
