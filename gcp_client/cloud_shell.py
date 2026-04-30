@@ -155,6 +155,24 @@ nohup docker-compose up > /home/{user_name}/compose.log 2>&1 &
         ]
         return subprocess.run(judge_complete_cmd, shell=False).returncode
 
+    def __get_instance_status(self):
+        # VM の status を返す（RUNNING / STOPPING / TERMINATED / STOPPED など）
+        # Spot 中断時は status が RUNNING から外れるため、ポーリング中の生存判定に使う
+        # 取得失敗時は空文字を返し、呼び出し側で「不明」として扱わせる
+        status_cmd = [
+            *GCLOUD_CMD, 'compute', 'instances', 'describe', self.instance,
+            f'--zone={zone}', '--format=value(status)',
+            f'--project={project_id}',
+        ]
+        try:
+            output = subprocess.check_output(
+                status_cmd, shell=False, stderr=subprocess.DEVNULL
+            )
+            return output.decode().strip()
+        except subprocess.CalledProcessError:
+            # describe 自体が失敗するのは MIG 側で既に消えた場合など
+            return ''
+
     def __merge_and_upload(self):
         remote_script = (
             f'cd {gdrive_dir_path}; '
@@ -190,6 +208,11 @@ nohup docker-compose up > /home/{user_name}/compose.log 2>&1 &
             else:
                 print(f"Instance {self.instance} not ready. Skipping...")
 
+        # Spot 中断検知用: VM status が RUNNING 以外（STOPPING / TERMINATED / STOPPED）に
+        # 落ちた場合、SSH ベースの done ポーリングだけでは永久ループになるため、
+        # ステータスチェックを並走させて中断を検知する
+        interrupted_statuses = {'STOPPING', 'TERMINATED', 'STOPPED', 'SUSPENDING', 'SUSPENDED'}
+
         while judge_complete_result != 0:
             await asyncio.sleep(poling_timer)
             judge_complete_result = await loop.create_task(self.__judge_calc_complete())
@@ -207,6 +230,24 @@ nohup docker-compose up > /home/{user_name}/compose.log 2>&1 &
                         f"Instance is kept alive for manual recovery. "
                         f"Check share dir and re-run upload manually before deleting."
                     )
+                return
+
+            # done が出ていない時点で SSH が失敗していたら、Spot 中断の可能性を疑う
+            # describe で status を確認し、RUNNING でなければ中断扱いで打ち切る
+            status = await loop.create_task(asyncio.to_thread(self.__get_instance_status))
+            if status in interrupted_statuses or status == '':
+                # RUNNING なら一時的な SSH 失敗（落とし穴 #9 など）として継続。
+                # それ以外（STOPPING/TERMINATED/STOPPED や describe 失敗で空文字）は
+                # 中断もしくは既に消滅したとみなしてループを脱出する
+                print(
+                    f"[INTERRUPTED] Instance {self.instance}: status='{status or 'UNKNOWN'}'. "
+                    f"Spot 中断もしくは消滅を検知。当該タスクは中断扱いで打ち切ります。"
+                    f"MIG から delete-instances で残骸ディスクを回収します。"
+                )
+                # 残骸ディスクの課金停止のため MIG 側からも明示削除する
+                # （既に消えていれば gcloud がエラーを返すが、戻り値は無視して続行）
+                self.__delete_instance()
+                return
 
 
 async def main():
