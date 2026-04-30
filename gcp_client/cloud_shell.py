@@ -99,10 +99,15 @@ class Instance:
     async def __calculation(self):
         # リモート側で実行する bash スクリプト本体（gcloud が --command の値として丸ごと渡してくれる）
         # 計算前に develop ブランチの最新コードへ強制同期する（ローカル変更があっても確実に追従させる）
+        # upload.py が依存する Google API ライブラリを起動時に system-wide で導入する
+        # （イメージへの焼き込みが何らかの原因で安定しなかったため、起動時保証に切り替え）
         remote_script = f"""set -e;
 cd /home/{user_name}/{repository_name};
 git fetch origin develop;
 git reset --hard origin/develop;
+if ! python3 -c 'import googleapiclient' 2>/dev/null; then
+  sudo pip3 install --prefix=/usr google-api-python-client google-auth google-auth-httplib2 google-auth-oauthlib;
+fi;
 cd {calc_dir_path};
 CLOUD_INSTANCE="{self.instance}";
 CLOUD_USER=$(gcloud config get-value account);
