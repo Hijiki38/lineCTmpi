@@ -242,9 +242,13 @@ def preflight_check():
 
 
 def parse_env_dump(stdout_text):
-    """VM 起動スクリプトが吐く ENV_DUMP_BEGIN/END マーカ間の .env 内容を辞書化"""
+    """VM 起動スクリプトが吐く ENV_DUMP_BEGIN/END マーカ間の .env 内容を辞書化。
+
+    .env の最終行に末尾改行が無いケース（イメージ焼き込み時の元 .env がそうだった）
+    では `cat .env` の出力末尾と `===ENV_DUMP_END===` が改行なしで連結されるため、
+    終端マーカの直前改行はオプショナルとして扱う。"""
     m = re.search(
-        r'===ENV_DUMP_BEGIN===\s*\n(.*?)\n===ENV_DUMP_END===',
+        r'===ENV_DUMP_BEGIN===\s*\n(.*?)\n?===ENV_DUMP_END===',
         stdout_text, re.DOTALL,
     )
     if not m:

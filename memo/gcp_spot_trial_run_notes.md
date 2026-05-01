@@ -399,6 +399,22 @@ quota=100 vCPU 制約で並列度 ≤ 25。**現行計画は `par_xstp=1` で1�
 - **副次的な保険**: 25台同時 prime が VM 側 SSH デーモン起動と競合する可能性に備え、`run()` 開始直後に `poling_timer` 1 周期分待ってから prime を呼ぶ。失敗しても続行（後続の prep リトライループが面倒を見る）
 - **未対応の代替案**: gcloud に `-o StrictHostKeyChecking=accept-new` 相当を効かせる方法もあるが、Windows 版 gcloud の SSH バックエンドが plink で `-o` フラグ非対応のため、stdin 注入方式を採用した。Linux/Mac では本来不要な処理だが、`y\n` の余剰入力は OpenSSH では無視されるためクロスプラットフォームで安全
 
+### 17. .env の末尾改行欠落で ENV_DUMP 終端マーカの正規表現がマッチせず全 5 台が [FATAL] 打ち切り（2026-05-02）
+
+- **症状**: 落とし穴 #16 対策後の 5 台再走で、prime SSH は全台 `remote_executed=True` で完了、prep SSH も `returncode=0` かつ stdout 6,654〜6,669 文字（pip install ログ + ENV_DUMP）が返ってきているのに、5 台すべて `ENV_DUMP マーカが見つかりませんでした` で打ち切られた
+- **原因**: 診断ログで stdout 末尾を見ると、ENV_DUMP_BEGIN は出ているが終端側がこうなっていた:
+  ```
+  PAR_PATH=share===ENV_DUMP_END===
+  ```
+  `core/.env` の最終行 `PAR_PATH=share` に**末尾改行が無く**、`cat .env` の出力と直後の `echo "===ENV_DUMP_END==="` が改行なしで連結された。一方 `parse_env_dump()` の正規表現は `\n===ENV_DUMP_END===` を要求しており、終端マーカの直前に改行が無い形にはマッチせず `None` を返した結果、`verify_remote_env()` が「マーカなし」判定で `[FATAL]` を出した
+- **なぜ前回までは表面化しなかったか**:
+  - 落とし穴 #16 までの 1 台/5 台試し打ちで使った VM は、過去の手動実行で `.env` を上書き済み → 末尾改行ありの状態だった
+  - 今回はじめて MIG が**新規イメージから素の `core/.env`** を持つ VM を 5 台連続で立ち上げたため、リポジトリ側に存在していた末尾改行欠落がそのまま露出した
+  - 落とし穴 #16 の手動 `gcloud ssh` テストでも stdout 内に `ENV_DUMP_END` 文字列は含まれていたため `in` チェックでは「OK」に見え、正規表現マッチを通っていないことに気付けなかった
+- **対策 (2026-05-02 実装)**: `parse_env_dump()` の正規表現を `\n===ENV_DUMP_END===` から `\n?===ENV_DUMP_END===` に変更し、終端マーカ直前の改行をオプショナル化（[gcp_client/cloud_shell.py](../gcp_client/cloud_shell.py)）。末尾改行ありでもなしでも両方マッチする
+- **検証**: 末尾改行あり/なし両パターンの stdout サンプルで `parse_env_dump()` が同じ辞書を返すことを単体確認済み。`PAR_PATH` の値も `share===ENV_DUMP_END===` ではなく `share` に正しく抽出される
+- **教訓**: テキストマーカ + 自由形式テキストを `cat` で挟む設計は、テキスト側の末尾改行有無に脆弱。診断時に「文字列が含まれているか (`in`)」と「正規表現が一致するか (`re.search`)」は別問題で、前者でしか確認しないと見落とす
+
 - OS: Rocky Linux 8
 - ユーザー: `zdc` (UID 1001, wheel/docker/google-sudoers グループ)
 - Docker CE 26.1.3 + docker-compose v2.29 (単体バイナリ `/usr/local/bin/docker-compose`)
