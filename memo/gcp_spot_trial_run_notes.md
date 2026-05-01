@@ -43,7 +43,9 @@
 | **5台規模 multi-instance フロー試し打ち（ステップB, par_pntm=4 検証込み）** | ✅ **完了 (2026-05-01)**。5台同時 計算→merge→upload→VM自動削除 全段成功 |
 | 本番25台 × 2バッチ初回実行 | ❌ **失敗 (2026-05-01)**。100投影×100万フォトンの旧設定で計算が走る事故。原因は parameter.py / .env の GitHub develop への push 漏れまたは sed 反映漏れ。落とし穴 #15 参照 |
 | **設定不整合事故防止ガード追加** | ✅ **完了 (2026-05-01)**。事前チェック + VM 起動時 .env 実値ダンプ照合の二段ガードを実装。落とし穴 #15 参照 |
-| 本番25台 × 2バッチ実行（ステップC、再挑戦） | 🔜 次の作業 |
+| 本番25台 × 2バッチ実行（ステップC、2回目挑戦） | ❌ **失敗 (2026-05-02)**。plink host-key プロンプトで prep_script が走らず ENV_DUMP 検出不能で全台 [FATAL] 打ち切り。二段ガードが docker 起動を阻止したため計算課金は発生せず。落とし穴 #16 参照 |
+| **plink host-key 受理の事前 SSH 追加** | ✅ **完了 (2026-05-02)**。`_prime_ssh_host_key()` で `--command=true` + `input=b"y\n"` を先打ちして plink キャッシュに登録。落とし穴 #16 参照 |
+| 本番25台 × 2バッチ実行（ステップC、3回目挑戦） | 🔜 次の作業 |
 
 ## 最終方針（確定）
 
@@ -380,6 +382,22 @@ quota=100 vCPU 制約で並列度 ≤ 25。**現行計画は `par_xstp=1` で1�
   - `verify_remote_env()` 単体で `PAR_STEP=100, PAR_HIST=1000000` を渡すと **NG 検出**できることを確認（前回事故時の値で再現テスト）
   - 現在の dev / `github/develop` で `preflight_check()` が PASS することを確認
 - **運用ルール**: 本番投入前に `git push github <作業ブランチ>:develop` を実行する。事前チェックで NG が出たらこのコマンドを思い出すための表示を入れている
+
+### 16. 25台規模の本番投入で plink host-key プロンプトに大量のVMが刺さり、prep_script が一切走らない事象（2026-05-02）
+
+- **症状**: 落とし穴 #15 の二段ガードを入れて再投入したところ、25台中 5 台が即 `[FATAL] ... ENV_DUMP マーカが見つかりませんでした` で打ち切り、残 20 台もポーリング段階で同症状を起こす流れになった。生き残ったVMで実際に `.env` を確認すると、**`PAR_STEP=1, PAR_HIST=10000000` のまま**（試し打ちの古い値）で、`git log -1` も `fb13117`（最新は `e668564`）→ **prep_script の `git fetch` も `sed` も 1 行も走っていない**ことが判明
+- **ログ上の決定的な手がかり**: stdout に下記のプロンプトが現れていた
+  ```
+  Store key in cache? (y/n, Return cancels connection, i for more info)
+  ```
+  これは Windows の `gcloud compute ssh` が内部で使う **plink** の host-key 未キャッシュプロンプト。新規 VM の host key は plink キャッシュに無いため、`--command=...` の非対話実行でも plink がプロンプトを出して stdin 待ちでブロックする。25台同時に新規IPが割り当てられたため、過去の試し打ち（5台規模）では既キャッシュ済みVMが多くて顕在化していなかった事象が一気に表面化した
+- **連鎖した影響**:
+  1. prep_script が実行されない → ENV_DUMP マーカ不在 → `verify_remote_env()` が NG → `[FATAL]` ＆ `abort_event.set()`
+  2. 落とし穴 #15 の二段ガードが正しく機能して docker-compose は **1 台も起動せず**、無駄な計算課金は発生しなかった（数分間のVM起動課金約 $1 弱のみ）
+  3. ガードが無かったら、古い `.env` (`PAR_STEP=1, PAR_HIST=10000000`) で 25 台が動き出し再度 $35 を溶かすところだった → 二段ガードの存在価値が再確認できた
+- **対策 (2026-05-02 実装)**: `Instance._prime_ssh_host_key()` を新設し、`run()` の最初で `prep_script` を投げる前に **軽量 SSH (`--command=true`) に `input=b"y\n"` を流して plink キャッシュへ host key を登録**する（[cloud_shell.py の Instance クラス](../gcp_client/cloud_shell.py)）。以降のすべての SSH 呼び出し（prep, docker 起動, done ポーリング, merge/upload, instance describe）は既キャッシュ済みとしてプロンプト無しで進む。既にキャッシュ済みの VM では `y\n` は単に余分な stdin として無視されるため空振り安全
+- **副次的な保険**: 25台同時 prime が VM 側 SSH デーモン起動と競合する可能性に備え、`run()` 開始直後に `poling_timer` 1 周期分待ってから prime を呼ぶ。失敗しても続行（後続の prep リトライループが面倒を見る）
+- **未対応の代替案**: gcloud に `-o StrictHostKeyChecking=accept-new` 相当を効かせる方法もあるが、Windows 版 gcloud の SSH バックエンドが plink で `-o` フラグ非対応のため、stdin 注入方式を採用した。Linux/Mac では本来不要な処理だが、`y\n` の余剰入力は OpenSSH では無視されるためクロスプラットフォームで安全
 
 - OS: Rocky Linux 8
 - ユーザー: `zdc` (UID 1001, wheel/docker/google-sudoers グループ)

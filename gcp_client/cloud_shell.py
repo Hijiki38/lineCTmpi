@@ -300,6 +300,63 @@ class Instance:
         self.par_istp = par_istp
         self.par_xstp = par_xstp
 
+    def _prime_ssh_host_key(self):
+        """plink (Windows の gcloud ssh が内部で使う) の host-key キャッシュ未登録に
+        起因する対話プロンプトを事前解消する。
+
+        背景 (落とし穴 #16, 2026-05-02):
+            Windows の `gcloud compute ssh` は plink.exe で SSH する。新規 VM の
+            host key は plink のキャッシュにないため
+            `Store key in cache? (y/n, ...)` プロンプトが出る。--command=... の
+            非対話実行でもこのプロンプトはスキップされず、stdin に y/n を投げない
+            と SSH セッションが進まない。結果としてリモートの prep_script
+            (git fetch / sed / ENV_DUMP) が**1 行も実行されない**まま終了し、
+            ENV_DUMP マーカ未検出 → [FATAL] が大量発生する事象が 2026-05-02
+            の本番投入で発生した。
+
+        対策:
+            軽量コマンド (`true`) を `input=b"y\\n"` 付きで先打ちし、plink に
+            host key をキャッシュさせる。以降のすべての SSH 呼び出し (prep,
+            docker 起動, done ポーリング, merge/upload, instance describe) は
+            既キャッシュ済みとして対話プロンプト無しで進む。
+            既にキャッシュ済みの VM なら `y\\n` は単に余分な stdin として
+            無視されるため、空振り安全。
+
+        副次的に `-o StrictHostKeyChecking=no` 相当を効かせるため
+        `--ssh-flag=-o ... ` も併用したいが、Windows の plink には
+        `-o` が存在しないので、ssh-flag 経由ではなく stdin 注入のみで対処する。
+        """
+        prime_cmd = [
+            *GCLOUD_CMD, 'compute', 'ssh', f'{user_name}@{self.instance}',
+            f'--zone={zone}', '--command=true',
+            f'--project={project_id}',
+        ]
+        try:
+            proc = subprocess.run(
+                prime_cmd, shell=False,
+                input=b'y\n',
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                timeout=120,
+            )
+            if proc.returncode == 0:
+                print(f'[PRIME] Instance {self.instance}: host-key 受理完了')
+            else:
+                tail = '\n'.join(
+                    proc.stderr.decode('utf-8', errors='replace').splitlines()[-3:]
+                )
+                # 失敗しても続行する（VM が SSH 受け入れ前のタイミングで
+                # 呼ばれた可能性。後続の prep でリトライループが面倒を見る）
+                print(
+                    f'[PRIME] Instance {self.instance}: 事前 SSH returncode='
+                    f'{proc.returncode} (続行)。stderr tail: {tail}'
+                )
+        except subprocess.TimeoutExpired:
+            print(
+                f'[PRIME] Instance {self.instance}: 事前 SSH タイムアウト (続行)'
+            )
+        except Exception as e:
+            print(f'[PRIME] Instance {self.instance}: 事前 SSH 例外 {e!r} (続行)')
+
     async def __calculation(self):
         # リモート側で実行する bash スクリプト本体（gcloud が --command の値として丸ごと渡してくれる）
         # 計算前に develop ブランチの最新コードへ強制同期する（ローカル変更があっても確実に追従させる）
@@ -474,6 +531,13 @@ echo "===ENV_DUMP_END===";
         calc_result = -1
         judge_complete_result = -1
         loop = asyncio.get_running_loop()
+
+        # plink host-key 受理を事前実行（落とし穴 #16 対策）。
+        # 以降のすべての SSH 呼び出しでプロンプトが出ないようにキャッシュへ登録する。
+        # 25 台同時 prime は VM 側の SSH 起動と競合する可能性があるため、
+        # poling_timer を 1 回だけ待ってから呼ぶ（prep ループの最初のスリープを兼ねる）。
+        await asyncio.sleep(poling_timer)
+        await loop.create_task(asyncio.to_thread(self._prime_ssh_host_key))
 
         while calc_result != 0:
             # 他 VM で .env 検証 NG が出ていたら、このタスクの起動も諦める
