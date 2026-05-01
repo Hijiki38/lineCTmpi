@@ -328,34 +328,63 @@ class Instance:
         """
         prime_cmd = [
             *GCLOUD_CMD, 'compute', 'ssh', f'{user_name}@{self.instance}',
-            f'--zone={zone}', '--command=true',
+            f'--zone={zone}', '--command=echo PRIME_OK',
             f'--project={project_id}',
         ]
-        try:
-            proc = subprocess.run(
-                prime_cmd, shell=False,
-                input=b'y\n',
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                timeout=120,
-            )
-            if proc.returncode == 0:
-                print(f'[PRIME] Instance {self.instance}: host-key 受理完了')
-            else:
-                tail = '\n'.join(
-                    proc.stderr.decode('utf-8', errors='replace').splitlines()[-3:]
+
+        def _run_prime(label, send_y):
+            """1 回分の prime SSH を実行し、stdout に PRIME_OK が来ているかで
+            実際にリモートでコマンドが走ったかを判定する。
+            send_y=True なら "y\\n" を stdin に流して plink プロンプトを通過させる。
+            送らない場合（=False）はプロンプト無しでも通る前提。
+            """
+            try:
+                proc = subprocess.run(
+                    prime_cmd, shell=False,
+                    input=(b'y\n' if send_y else b''),
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=120,
                 )
-                # 失敗しても続行する（VM が SSH 受け入れ前のタイミングで
-                # 呼ばれた可能性。後続の prep でリトライループが面倒を見る）
+            except subprocess.TimeoutExpired:
                 print(
-                    f'[PRIME] Instance {self.instance}: 事前 SSH returncode='
-                    f'{proc.returncode} (続行)。stderr tail: {tail}'
+                    f'[PRIME] Instance {self.instance} ({label}): タイムアウト (続行)'
                 )
-        except subprocess.TimeoutExpired:
+                return False
+            except Exception as e:
+                print(
+                    f'[PRIME] Instance {self.instance} ({label}): 例外 {e!r} (続行)'
+                )
+                return False
+
+            stdout_text = proc.stdout.decode('utf-8', errors='replace')
+            stderr_text = proc.stderr.decode('utf-8', errors='replace')
+            ran_remote = 'PRIME_OK' in stdout_text
+            stderr_tail = '\n'.join(stderr_text.splitlines()[-3:])
             print(
-                f'[PRIME] Instance {self.instance}: 事前 SSH タイムアウト (続行)'
+                f'[PRIME] Instance {self.instance} ({label}): '
+                f'returncode={proc.returncode}, '
+                f'remote_executed={ran_remote}, '
+                f'stdout={len(stdout_text)}文字, stderr={len(stderr_text)}文字'
             )
-        except Exception as e:
-            print(f'[PRIME] Instance {self.instance}: 事前 SSH 例外 {e!r} (続行)')
+            if not ran_remote and stderr_tail:
+                print(f'        stderr tail: {stderr_tail}')
+            return ran_remote
+
+        # 1 回目: host-key プロンプトに備えて y\n を流す。リモートで
+        # PRIME_OK が echo されれば本当に SSH が通っている。
+        first_ok = _run_prime('1st', send_y=True)
+
+        # 2 回目: 1 回目で plink キャッシュが更新済みなら y\n 不要で通るはず。
+        # 通らなければキャッシュ書き込みが効いていない、あるいはキャッシュ衝突など
+        # 別事象が起きているサイン。後続の prep が同じ状態に遭遇する可能性が高いので
+        # 警告を出して 3 回目で y\n 注入を再試行する。
+        second_ok = _run_prime('2nd', send_y=False)
+        if first_ok and not second_ok:
+            print(
+                f'[PRIME] Instance {self.instance}: 2 回目の事前 SSH が空通信に '
+                f'失敗。plink キャッシュ未確定の疑い → 3 回目を y\\n 付きで再試行'
+            )
+            _run_prime('3rd', send_y=True)
 
     async def __calculation(self):
         # リモート側で実行する bash スクリプト本体（gcloud が --command の値として丸ごと渡してくれる）
@@ -437,6 +466,11 @@ echo "===ENV_DUMP_END===";
             self.instance, env_dump, self.par_istp, self.par_xstp,
         )
         if not ok:
+            # 失敗診断のため stdout/stderr の中身を必ずダンプする。
+            # 返り値 0 でも ENV_DUMP マーカが無いケースは原因特定が難しいため、
+            # 長さ・行数・末尾を出して何が SSH から返って来たかを切り分ける。
+            stdout_lines = stdout_text.splitlines()
+            stderr_lines = stderr_text.splitlines()
             print(
                 f'\n[FATAL] Instance {self.instance}: VM 上の .env が期待値と一致しません。\n'
                 f'        sed が反映されていない可能性が高く、このまま走らせると誤設定で計算してしまうため打ち切ります。\n'
@@ -444,6 +478,19 @@ echo "===ENV_DUMP_END===";
             )
             for d in diffs:
                 print(f'          - {d}')
+            print(
+                f'        診断情報:\n'
+                f'          prep SSH returncode={prep_proc.returncode}\n'
+                f'          stdout: {len(stdout_text)} 文字 / {len(stdout_lines)} 行\n'
+                f'          stderr: {len(stderr_text)} 文字 / {len(stderr_lines)} 行'
+            )
+            print(f'        --- stdout 末尾 30 行 ---')
+            for line in stdout_lines[-30:]:
+                print(f'          | {line}')
+            print(f'        --- stderr 末尾 30 行 ---')
+            for line in stderr_lines[-30:]:
+                print(f'          | {line}')
+            print(f'        --- 診断ここまで ---')
             # グローバル中断イベントを立て、全 VM タスクの停止を促す
             if abort_event is not None:
                 abort_event.set()
@@ -454,7 +501,8 @@ echo "===ENV_DUMP_END===";
         print(
             f'[OK]   Instance {self.instance}: .env 検証通過 '
             f'(STEP={env_dump.get("PAR_STEP")}, HIST={env_dump.get("PAR_HIST")}, '
-            f'ISTP={env_dump.get("PAR_ISTP")}, HSTP={env_dump.get("PAR_HSTP")})'
+            f'ISTP={env_dump.get("PAR_ISTP")}, HSTP={env_dump.get("PAR_HSTP")}, '
+            f'prep stdout {len(stdout_text)} 文字)'
         )
 
         # 検証 OK のときのみ docker-compose を起動
