@@ -4,7 +4,7 @@ zone = 'us-central1-b'	# インスタンスグループを作成したZONE
 instance_group_name = 'linectmpi'	# インスタンスグループ名
 user_name = "zdc"   # インスタンスで作成した共有ユーザ名
 repository_name = "lineCTmpi" # git cloneしたリポジトリ名
-num_instance = 25	# 同時実行するインスタンス数（本番: quota=100 vCPU 制約で25台運用）
+num_instance = 5 #25	# 同時実行するインスタンス数（本番: quota=100 vCPU 制約で25台運用）
 poling_timer = 30	# 処理待ち時の待機時間(sec)
 
 # 計算用パラメータ（本番: 50投影 × 5000万フォトン、25台 × 1投影/台 × 2バッチで計50投影）
