@@ -1,7 +1,7 @@
 # GCP Spot VM でのシミュレーション試し打ち ノート
 
 作成日: 2026-04-24
-最終更新: 2026-05-01
+最終更新: 2026-05-01（事故防止ガード追加）
 対象: ctsimulator_egs5 (lineCTmpi) のGCP実行環境立ち上げと試し打ち
 
 ## 目次
@@ -41,7 +41,9 @@
 | 3〜4回目 自動フロー試し打ち（焼き直しイメージ使用） | ❌ ImportError on googleapiclient で連続失敗 (2026-04-29〜30)。落とし穴 #14 参照 |
 | **5回目 自動フロー試し打ち（pip install を起動スクリプトに移行）** | ✅ **完了 (2026-04-30)**。計算→merge→upload→VM自動削除 全段成功 |
 | **5台規模 multi-instance フロー試し打ち（ステップB, par_pntm=4 検証込み）** | ✅ **完了 (2026-05-01)**。5台同時 計算→merge→upload→VM自動削除 全段成功 |
-| 本番25台 × 4バッチ実行（ステップC） | 🔜 次の作業 |
+| 本番25台 × 2バッチ初回実行 | ❌ **失敗 (2026-05-01)**。100投影×100万フォトンの旧設定で計算が走る事故。原因は parameter.py / .env の GitHub develop への push 漏れまたは sed 反映漏れ。落とし穴 #15 参照 |
+| **設定不整合事故防止ガード追加** | ✅ **完了 (2026-05-01)**。事前チェック + VM 起動時 .env 実値ダンプ照合の二段ガードを実装。落とし穴 #15 参照 |
+| 本番25台 × 2バッチ実行（ステップC、再挑戦） | 🔜 次の作業 |
 
 ## 最終方針（確定）
 
@@ -364,7 +366,20 @@ quota=100 vCPU 制約で並列度 ≤ 25。**現行計画は `par_xstp=1` で1�
 - **実測 (2026-04-28)**: `NUM_CPU=2` + `PAR_PNTM=3`（3スレッド要求） で完走確認済み。oversubscribe 警告なしで動作した（落とし穴 #7 のとおり MPI 認識上は 2 スロットだが、実 vCPU=4 あるためスレッド3はOSスケジューラ任せで問題なく動く）
 - **派生 TODO**: 試し打ち実測 wall-clock が 1千万フォトン (`PAR_PNTM=3` 仕様) で 102分 → 100万フォトン (今回, `PAR_PNTM=3`) で 14分11秒。線形換算なら 10分のところ +40% 遅い。`NUM_CPU=2` の影響かは未切り分け（小規模ゆえの初期化オーバーヘッド比率が大きい可能性も）
 
-## VM イメージ内に焼き込んだ内容
+### 15. ローカル設定が GitHub develop に反映されないまま VM が古い設定で計算を完走（コスト約 $35 の無駄化）
+
+- **症状**: 本番投入（25台 × 50投影 × 5000万フォトンを想定）で実行したところ、結果が **100投影 × 100万フォトン**（旧試し打ち設定）になっていた。`parameter.py` 側で半減版（`par_step=50, par_hist=50_000_000`）を確定済みだったにも関わらず、VM 上では `PAR_STEP=100, PAR_HIST=1000000` の `.env` で `docker-compose up` が走ってしまった
+- **原因（複数経路の可能性、いずれも未確定）**:
+  1. **GitHub `develop` への push 漏れ**: VM 上の `git fetch origin develop` は `https://github.com/Hijiki38/lineCTmpi.git` を見ている。一方ローカルでの作業は Bitbucket 側 `origin` を使うことが多く、`github` リモート側に最新 `parameter.py` / `core/.env` が push されていないと、VM 上の `git reset --hard origin/develop` で旧コードに巻き戻る
+  2. **VM 上の sed 反映漏れ**: 何らかの理由で `sed -i "s/PAR_STEP=.*/PAR_STEP=${{STEP}}/" .env` が `.env` に反映されないケース（`set -e` で止まらない sed の silent fail など）
+  3. **人為ミス**: 別ブランチをチェックアウトしたまま `cloud_shell.py` を起動したなど
+- **対策（2026-05-01 実装）**: `cloud_shell.py` に二段ガードを実装（[gcp_client/cloud_shell.py](../gcp_client/cloud_shell.py)）
+  1. **ローカル事前チェック**: `main()` の冒頭で `preflight_check()` を実行し、`git fetch github develop` した結果と、ローカルの `gcp_client/parameter.py` / `core/.env` の重要キー（`par_step`, `par_hist`, `FFILE`, `INPFILE`, `PAR_PHANTOM_FILE` 等）が一致しているか比較。1 つでも不一致があれば `RuntimeError` で起動中断（MIG resize は走らないので課金ゼロ）
+  2. **VM 起動スクリプトの 2 段化**: 段階1 で git 同期 + sed までを実行し、`===ENV_DUMP_BEGIN===` / `===ENV_DUMP_END===` マーカで囲んで `.env` を stdout にダンプ → ローカル側で stdout をキャプチャして `parameter.py` の期待値と照合 → 検証 OK のときだけ段階2 で `nohup docker-compose up` を起動。検証 NG なら `[FATAL]` ログ + `abort_event.set()` で全 VM タスクに中断伝播し、誤設定 VM は即削除
+- **検証**:
+  - `verify_remote_env()` 単体で `PAR_STEP=100, PAR_HIST=1000000` を渡すと **NG 検出**できることを確認（前回事故時の値で再現テスト）
+  - 現在の dev / `github/develop` で `preflight_check()` が PASS することを確認
+- **運用ルール**: 本番投入前に `git push github <作業ブランチ>:develop` を実行する。事前チェックで NG が出たらこのコマンドを思い出すための表示を入れている
 
 - OS: Rocky Linux 8
 - ユーザー: `zdc` (UID 1001, wheel/docker/google-sudoers グループ)

@@ -222,10 +222,25 @@ GCP 経由の実行は `gcp_client/` と `gcp_VM/` が担当します。
 1. GCP 側で VM イメージや Instance Group を準備する
 2. 各 VM にこのリポジトリと Docker 実行環境を置く
 3. `gcp_client/parameter.py` を編集する
-4. `python3 cloud_shell.py` を実行する
-5. 各 VM が計算完了後、CSV マージと Google Drive へのアップロードを行い、自身を削除する
+4. **`gcp_client/parameter.py` と `core/.env` の変更を `github` リモートの `develop` ブランチに push する**（VM が clone するのは GitHub 側のため）
+5. `python3 cloud_shell.py` を実行する
+6. 各 VM が計算完了後、CSV マージと Google Drive へのアップロードを行い、自身を削除する
 
 `cloud_shell.py` を見ると、投影範囲は `par_istp` から `par_xstp` ずつインスタンスごとに割り振られます。
+
+### 設定不整合事故防止（2026-05-01 追加）
+
+過去にローカル `parameter.py` を変更したが GitHub `develop` に push 忘れがあり、VM 上で旧設定（100 投影 × 100 万フォトン）の計算が走ってしまう事故が発生したため、`cloud_shell.py` に以下の二段ガードを設けています。
+
+1. **ローカル事前チェック（MIG resize の前に実行）**
+   - `git fetch github develop` でリモートを取得し、`gcp_client/parameter.py` と `core/.env` の重要キーがローカルと `github/develop` で一致しているかを比較する
+   - 不一致があれば標準出力に `[NG]` 行と差分を表示し、`RuntimeError` で起動を中断する
+   - VM は一切起動しないため課金は発生しない
+   - 対処は表示されたメッセージのとおり「`git push github <ブランチ>:develop` で develop を最新化してから再実行」する
+2. **VM 側 sed 後の `.env` 実値ダンプ照合**
+   - 各 VM の起動スクリプトを 2 段階に分割し、段階 1 で `git reset --hard origin/develop` → `sed` 置換 → `cat .env` までを実行し、`===ENV_DUMP_BEGIN===` / `===ENV_DUMP_END===` で囲んで stdout に出力する
+   - ローカル側で stdout をキャプチャして `parameter.py` の期待値と照合し、1 つでもズレがあれば `[FATAL]` を出して当該 VM を即削除し、`abort_event` で他 VM タスクにも中断を伝播する
+   - 段階 2 の `docker-compose up` は **検証 OK のときだけ** 起動するため、誤設定の VM では計算自体が走らず無駄な課金を防ぐ
 
 ## ローカル PC を使った SSH 分散実行
 
