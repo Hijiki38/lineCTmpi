@@ -694,10 +694,12 @@ async def main():
                 f'欠損補完モードでは par_xstp=1 固定が前提ですが現在 {par_xstp} です。'
                 f' parameter.py の par_xstp を 1 に戻してから再実行してください。'
             )
-        if any((not isinstance(i, int)) or i < 0 or i >= par_step for i in missing_indices):
+        if any((not isinstance(i, int)) or isinstance(i, bool) or i < 0 or i >= par_step for i in missing_indices):
             raise RuntimeError(
                 f'par_missing_indices の値が不正です: {missing_indices}'
-                f'（0 以上 par_step={par_step} 未満の整数のみ許可）'
+                f'（0 以上 par_step={par_step} 未満の整数のみ許可）。'
+                f' Drive 上のファイル名は角度値 (0..359) なので、'
+                f' i = round(angle * par_step / 360) で i 値に逆変換してから入れること。'
             )
         if len(set(missing_indices)) != len(missing_indices):
             raise RuntimeError(
