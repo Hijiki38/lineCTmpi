@@ -21,6 +21,15 @@ par_xstp = 1	# 1インスタンス当たりの投影枚数（25台×1投影 = 1�
 par_pntm = 4	# 並列スレッド数（4 vCPU 全活用、ステップBで動作確認済み: 2026-05-01）
 par_beam = 1	# ビーム(0:Parallel, 1:Fan)
 
+# 欠損補完モード用パラメタ（2026-05-07 追加）
+# 通常運用: 空リスト [] のまま → 上記 par_istp / par_xstp / num_instance による「連続範囲モード」で実行
+# 欠損補完: Spot 中断で取りこぼした投影番号 (i 値, 0 始まり) を明示列挙 → cloud_shell.py が
+#           num_instance を len(par_missing_indices) に置き換え、各 VM に飛び飛びの par_istp を配布する
+# 例: par_missing_indices = [0, 7, 28, 50, 57] のとき 5 台起動し、各台が i=0,7,28,50,57 の 1 投影だけを処理する
+# 注意: par_xstp は 1 固定が前提（補完用途で連続2投影を1台で回す意味は薄いため）
+# 2026-05-07 本番1回目 (par_istp=0,25 二回実行) の欠損18投影を補完するための実行
+par_missing_indices = [0, 7, 28, 50, 57, 72, 86, 115, 122, 129, 151, 158, 165, 201, 208, 237, 302, 331]
+
 # ファイル操作用パラメータ
 calc_dir_path = f'/home/{user_name}/{repository_name}/core/' # dockerを起動し計算を行うディレクトリのパス（"/"まで）
 share_dir_path = f'/home/{user_name}/{repository_name}/core/share/' # 計算結果を出力するディレクトリのパス（"/"まで）

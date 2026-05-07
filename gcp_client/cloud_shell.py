@@ -156,10 +156,13 @@ def _parse_parameter_py_text(text):
 
 # 事前チェックで「中身まで一致しているか」を見る parameter.py のキー。
 # 計算結果に影響する全項目 + GCP 接続先。
+# par_missing_indices は欠損補完モードで実行する投影 i 値を決定する重要パラメタなので
+# ローカルと GitHub develop の不一致は致命的（push 漏れで意図と違う投影が再計算される）
 PARAMETER_PY_CRITICAL_KEYS = (
     'project_id', 'zone', 'instance_group_name', 'num_instance',
     'par_sod', 'par_sdd', 'par_ptch', 'par_ttms',
     'par_step', 'par_hist', 'par_istp', 'par_xstp', 'par_pntm', 'par_beam',
+    'par_missing_indices',
 )
 
 
@@ -670,12 +673,46 @@ echo "===ENV_DUMP_END===";
 
 async def main():
     global par_istp
+    global num_instance
     global ready_count
     global abort_event
 
     # 事前チェック: ローカル設定が GitHub develop に push 済みかを確認
     # ここで例外が飛んだら MIG resize は走らない（VM 起動課金を発生させない）
     preflight_check()
+
+    # 欠損補完モード判定（2026-05-07 追加）
+    # parameter.py の par_missing_indices が非空なら、各 VM に飛び飛びの par_istp を
+    # 配布する補完モードに切り替える。空なら従来通り par_istp を par_xstp ずつ加算する
+    # 連続範囲モードで実行する。
+    # 補完モードでは num_instance を len(par_missing_indices) に上書きするため、
+    # MIG resize もこの台数で行う。par_xstp は 1 固定前提（連続2投影を1台で回す意味が薄い）。
+    missing_indices = list(p.par_missing_indices)
+    if missing_indices:
+        if par_xstp != 1:
+            raise RuntimeError(
+                f'欠損補完モードでは par_xstp=1 固定が前提ですが現在 {par_xstp} です。'
+                f' parameter.py の par_xstp を 1 に戻してから再実行してください。'
+            )
+        if any((not isinstance(i, int)) or i < 0 or i >= par_step for i in missing_indices):
+            raise RuntimeError(
+                f'par_missing_indices の値が不正です: {missing_indices}'
+                f'（0 以上 par_step={par_step} 未満の整数のみ許可）'
+            )
+        if len(set(missing_indices)) != len(missing_indices):
+            raise RuntimeError(
+                f'par_missing_indices に重複があります: {missing_indices}'
+            )
+        num_instance = len(missing_indices)
+        print(
+            f'[MODE] 欠損補完モード: {num_instance} 台 × 1 投影で'
+            f' i={missing_indices} を再計算します。'
+        )
+    else:
+        print(
+            f'[MODE] 連続範囲モード: {num_instance} 台 ×'
+            f' par_xstp={par_xstp} 投影 (par_istp={par_istp} から)。'
+        )
 
     # 全 VM タスク間で共有する中断イベント（asyncio loop 内でのみ生成可能）
     abort_event = asyncio.Event()
@@ -690,8 +727,13 @@ async def main():
     tasks = []
     for i, instance in enumerate(instance_list):
         ready_count = i + 1
-        processing_instances.append(Instance(instance))
-        tasks.append(asyncio.create_task(processing_instances[i].run()))
+        inst_obj = Instance(instance)
+        if missing_indices:
+            # 補完モード: 各 VM に欠損リストの i 値を 1 つずつ割り当てる。
+            # par_xstp=1 前提なので prep_script の HSTP=ISTP+1 で 1 投影だけ計算される。
+            inst_obj.par_istp = missing_indices[i]
+        processing_instances.append(inst_obj)
+        tasks.append(asyncio.create_task(inst_obj.run()))
         par_istp += par_xstp
 
     await asyncio.gather(*tasks)
