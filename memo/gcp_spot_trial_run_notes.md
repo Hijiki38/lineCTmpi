@@ -45,7 +45,12 @@
 | **設定不整合事故防止ガード追加** | ✅ **完了 (2026-05-01)**。事前チェック + VM 起動時 .env 実値ダンプ照合の二段ガードを実装。落とし穴 #15 参照 |
 | 本番25台 × 2バッチ実行（ステップC、2回目挑戦） | ❌ **失敗 (2026-05-02)**。plink host-key プロンプトで prep_script が走らず ENV_DUMP 検出不能で全台 [FATAL] 打ち切り。二段ガードが docker 起動を阻止したため計算課金は発生せず。落とし穴 #16 参照 |
 | **plink host-key 受理の事前 SSH 追加** | ✅ **完了 (2026-05-02)**。`_prime_ssh_host_key()` で `--command=true` + `input=b"y\n"` を先打ちして plink キャッシュに登録。落とし穴 #16 参照 |
-| 本番25台 × 2バッチ実行（ステップC、3回目挑戦） | 🔜 次の作業 |
+| 本番25台 × 2バッチ実行（ステップC、3回目挑戦） | ❌ **失敗 (2026-05-02)**。`.env` 末尾改行欠落で ENV_DUMP 終端マーカの正規表現が外れ、5台規模試走が全台 [FATAL]。落とし穴 #17 参照 |
+| **ENV_DUMP 終端マーカ正規表現の柔軟化** | ✅ **完了 (2026-05-02)**。`\n===ENV_DUMP_END===` → `\n?===ENV_DUMP_END===` で末尾改行有無の両対応。落とし穴 #17 参照 |
+| 本番25台 × 2バッチ実行（ステップC、4回目挑戦, par_istp=25 単発） | ❌ **失敗 (2026-05-04)**。1台のみ残存→中断。MIG REPAIR 補充で詳細不明だが進捗ゼロのまま停止 |
+| 本番25台 × 1バッチ実行（ステップC、5回目挑戦, par_istp=0） | ❌ **失敗 (2026-05-06)**。約25時間経過しても13台がゾンビ化（uptime 8.5h, docker 未起動）。MIG `defaultActionOnFailure: REPAIR` による Spot 中断後の自動補充が原因。Drive アップロードもゼロ。落とし穴 #18 参照 |
+| **MIG `defaultActionOnFailure` を `DO_NOTHING` に変更** | ✅ **完了 (2026-05-07)**。`gcloud ... update --default-action-on-vm-failure=do-nothing` で Spot 中断後のゾンビ補充を根絶。落とし穴 #18 参照 |
+| 本番25台 × 2バッチ実行（ステップC、6回目挑戦） | 🔜 次の作業 |
 
 ## 最終方針（確定）
 
@@ -414,6 +419,30 @@ quota=100 vCPU 制約で並列度 ≤ 25。**現行計画は `par_xstp=1` で1�
 - **対策 (2026-05-02 実装)**: `parse_env_dump()` の正規表現を `\n===ENV_DUMP_END===` から `\n?===ENV_DUMP_END===` に変更し、終端マーカ直前の改行をオプショナル化（[gcp_client/cloud_shell.py](../gcp_client/cloud_shell.py)）。末尾改行ありでもなしでも両方マッチする
 - **検証**: 末尾改行あり/なし両パターンの stdout サンプルで `parse_env_dump()` が同じ辞書を返すことを単体確認済み。`PAR_PATH` の値も `share===ENV_DUMP_END===` ではなく `share` に正しく抽出される
 - **教訓**: テキストマーカ + 自由形式テキストを `cat` で挟む設計は、テキスト側の末尾改行有無に脆弱。診断時に「文字列が含まれているか (`in`)」と「正規表現が一致するか (`re.search`)」は別問題で、前者でしか確認しないと見落とす
+
+### 18. MIG の `defaultActionOnFailure: REPAIR` で Spot 中断後にゾンビ VM が量産される（2026-05-07）
+
+- **症状**: 25台 × `par_istp=0` で本番投入。8.5h 想定に対し約25時間経過しても 13 台が `RUNNING` のまま残存。ローカル `cloud_shell.py` も `await asyncio.gather` で永久ハング状態
+- **診断**: 第1世代の `linectmpi-0lvb` に SSH したところ `docker ps -a` が空、`/home/zdc/lineCTmpi/core/share/` も空、`uptime` が 8h36m。MIG `creationTimestamp` は 25 時間前を示しているのに実 VM の uptime が 8.5h → **MIG が同名 VM を再生成している**ことが判明
+- **原因**: MIG の `instanceLifecyclePolicy.defaultActionOnFailure` が **`REPAIR`**（GCP デフォルト）。Spot 中断 → MIG が同名で代替 VM を自動起動 → 新 VM では `cloud_shell.py` の prep フェーズは既に「成功済み」扱いなので **prep_script が再実行されない** → `docker-compose up` も走らないゾンビ VM が完成。`forceUpdateOnRepair: NO` だったため再生成時に startup-script 系の再実行も期待できない
+- **影響**:
+  - 計算は1台たりとも完走せず、Drive へのアップロードもゼロ
+  - 課金は 13台 × 約8.5〜25時間が無駄に流れた（推定 $20〜30 規模）
+  - ローカル側の中断検知（落とし穴 #14 の `is_spot_preempted`）は動いていたが、MIG が即補充するのでループから抜けられない
+- **対策 (2026-05-07 実装)**: MIG の `defaultActionOnFailure` を **`DO_NOTHING`** に変更:
+  ```
+  gcloud compute instance-groups managed update linectmpi \
+      --project=linectmpi-401502 --zone=us-central1-b \
+      --default-action-on-vm-failure=do-nothing
+  ```
+  これで Spot 中断時に MIG が代替 VM を起動しなくなり、ゾンビ化を根本から防止できる。中断 VM は単純に消え、ローカル側の中断検知ロジックがそれを観測して当該タスクを終わらせる
+- **設計判断**: `cloud_shell.py` 側で中断検知時に `instance-groups managed abandon-instances` を呼ぶ案もあったが却下:
+  1. abandon API 呼び出し漏れ（タイミング、リトライ失敗）でゾンビ化が再発するリスクがある
+  2. 中断検知は既に実装済み (`is_spot_preempted`)。MIG が補充しなければ「中断 VM は単に消えるだけ」で自然な状態になる
+  3. REPAIR は本来「常時稼働サービス」の自動復旧のための機能で、1 VM 1 投影完走の **使い捨てバッチ**には本質的に合わない設定
+  → **「補充させない」のが最もシンプルかつ堅牢**
+- **副次的注意**: `DO_NOTHING` でもユーザー（または `cloud_shell.py`）が明示的に `resize` で台数を要求すれば新規 VM は起動するので、本番フロー（`make_instances` → `resize size=N`）は変わらず動く。違いは「中断後の自動補充をしない」だけ
+- **教訓**: MIG のデフォルトはサービス用途向けの設定で、バッチワークロードに無条件適用するのは危険。テンプレート/MIG 作成時に `instanceLifecyclePolicy` をワークロード性質に合わせて明示設定すべき
 
 - OS: Rocky Linux 8
 - ユーザー: `zdc` (UID 1001, wheel/docker/google-sudoers グループ)
