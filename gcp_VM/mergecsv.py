@@ -9,10 +9,14 @@ file_path = args[1]  # スキャンファイルのパス("/"まで)
 
 # 入力候補は `XXX.NN.csv` 形式（投影番号.サンプル番号.csv）のみ
 # 既結合済み `XXX.csv` を再結合対象から除外する（再実行時に出力ファイルを
-# 入力として読み込み、最終的に削除してしまう事故の防止）
+# 入力として読み込み、最終的に削除してしまう事故の防止）。
+# また、0 byte の壊れた中間ファイルは csv.reader が空配列を返し、後段で
+# `len(data[0])` が IndexError になるため、ここで除外して下流の異常終了を防ぐ
+# （落とし穴 #19, 2026-05-08）。
 all_files = [
     f for f in glob.glob(F'{file_path}*.csv')
     if os.path.basename(f).count('.') >= 2
+    and os.path.getsize(f) > 0
 ]
 
 # 角度をキーとしたファイルリストの辞書を作成

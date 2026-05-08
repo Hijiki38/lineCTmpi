@@ -27,11 +27,13 @@ par_beam = 1	# ビーム(0:Parallel, 1:Fan)
 #           num_instance を len(par_missing_indices) に置き換え、各 VM に飛び飛びの par_istp を配布する
 # 例: par_missing_indices = [0, 7, 28, 50, 57] のとき 5 台起動し、各台が i=0,7,28,50,57 の 1 投影だけを処理する
 # 注意: par_xstp は 1 固定が前提（補完用途で連続2投影を1台で回す意味は薄いため）
-# 2026-05-07 本番1回目 (par_istp=0,25 二回実行) の欠損18投影を補完するための実行
+# 2026-05-08 本番2回目（補完モード初回, par_missing_indices=18投影）の取りこぼし10投影を再補完するための実行
+# - 0 byte 中間ファイルが Drive 到達: i=8,17,21,33,42,46 （落とし穴 #19 で対策済、再計算で結合済み CSV を取得）
+# - Drive 不在: i=4,12,16,29 （Spot 中断もしくは done 立たずで再計算必須）
 # 値は i 値 (0..par_step-1)。Drive 上のファイル名は EGS5 が int(i*360/par_step) で生成した角度
 # なので、欠損角度から i = round(angle * par_step / 360) で逆変換した値を入れる
 # 例: 角度 0,7,28,50,... → i=0,1,4,7,... (par_step=50 のとき angle = int(i*7.2))
-par_missing_indices = [0, 1, 4, 7, 8, 10, 12, 16, 17, 18, 21, 22, 23, 28, 29, 33, 42, 46]
+par_missing_indices = [4, 8, 12, 16, 17, 21, 29, 33, 42, 46]
 
 # ファイル操作用パラメータ
 calc_dir_path = f'/home/{user_name}/{repository_name}/core/' # dockerを起動し計算を行うディレクトリのパス（"/"まで）

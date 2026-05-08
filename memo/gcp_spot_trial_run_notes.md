@@ -53,7 +53,9 @@
 | **MIG `defaultActionOnFailure` を `DO_NOTHING` に変更** | ✅ **完了 (2026-05-07)**。`gcloud ... update --default-action-on-vm-failure=do-nothing` で Spot 中断後のゾンビ補充を根絶。落とし穴 #18 参照 |
 | 本番25台 × 2バッチ実行（ステップC、6回目挑戦, par_istp=0 と 25） | ⚠️ **部分成功 (2026-05-07)**。50投影中32投影が完走 (バッチ1: 12/25, バッチ2: 20/25)。残18投影は Spot 中断で取りこぼし。欠損角度=`[0,7,28,50,57,72,86,115,122,129,151,158,165,201,208,237,302,331]` (i 値=`[0,1,4,7,8,10,12,16,17,18,21,22,23,28,29,33,42,46]`) |
 | **欠損補完モード追加 (`par_missing_indices`)** | ✅ **完了 (2026-05-07)**。parameter.py に欠損 i 値リストを書くと cloud_shell.py が `num_instance = len(リスト)` で MIG resize し、各 VM に飛び飛びの `par_istp` を 1 投影ずつ配布する。連続範囲モードと共存。詳細は [欠損補完モード](#欠損補完モード2026-05-07追加) 節 |
-| 本番25台 × 2バッチ実行（ステップC、7回目挑戦, 欠損18投影の補完） | 🔜 次の作業（`par_missing_indices=[0,1,4,...,46]` を設定済み、push 後に実行） |
+| 本番25台 × 2バッチ実行（ステップC、7回目挑戦, 欠損18投影の補完） | ⚠️ **部分成功 (2026-05-08)**。18投影中 8 投影が結合済み (i=0,1,7,10,18,22,23,28)、6 投影が 0 byte 中間ファイルで Drive 到達 (i=8,17,21,33,42,46)、4 投影は Drive 不在 (i=4,12,16,29)。落とし穴 #19 参照 |
+| **`mergecsv.py` 失敗時の `upload.py` 抑止 + 0 byte ファイル除外** | ✅ **完了 (2026-05-08)**。`cloud_shell.py` の remote_script を `;` → `&&` に変更、`mergecsv.py` で `os.path.getsize(f) > 0` フィルタ追加。落とし穴 #19 参照 |
+| 本番再実行（ステップC、8回目挑戦, 欠損10投影の補完） | 🔜 次の作業（`par_missing_indices=[4,8,12,16,17,21,29,33,42,46]` を設定して実行予定） |
 
 ## 最終方針（確定）
 
@@ -508,6 +510,28 @@ missing_i = sorted(set(range(50)) - set(done_i))
   → **「補充させない」のが最もシンプルかつ堅牢**
 - **副次的注意**: `DO_NOTHING` でもユーザー（または `cloud_shell.py`）が明示的に `resize` で台数を要求すれば新規 VM は起動するので、本番フロー（`make_instances` → `resize size=N`）は変わらず動く。違いは「中断後の自動補充をしない」だけ
 - **教訓**: MIG のデフォルトはサービス用途向けの設定で、バッチワークロードに無条件適用するのは危険。テンプレート/MIG 作成時に `instanceLifecyclePolicy` をワークロード性質に合わせて明示設定すべき
+
+### 19. `mergecsv.py` 異常終了でも `upload.py` が続行し、0 byte 中間 CSV が Drive に流入（2026-05-08）
+
+- **症状**: 欠損補完モードで 18 投影を投入したところ、Drive に **8 個の結合済み `XXX.csv` (1.2MB)** に加え **6 個の 0 byte 中間ファイル `XXX.NN.csv`** が混在した。本来 `mergecsv.py` は中間ファイルを結合後に削除するため、Drive には `XXX.csv` だけが上がるはず
+- **診断**: `memo/260508.log:289-294` に `mergecsv.py` の `IndexError: list index out of range` (`cols = len(data[0])` 行) が記録されていた。0 byte ファイルを `csv.reader` が読み込むと `data == []` となり、`data[0]` で例外。にもかかわらず直後に `File ID: ...` ログが出ており、**upload.py は実行されている**
+- **原因**: `cloud_shell.py` の `__merge_and_upload` が remote_script を `;` で連結していた:
+  ```
+  cd ...; python3 mergecsv.py ...; python3 upload.py ...
+  ```
+  これだと `mergecsv.py` が異常終了しても `upload.py` が独立に走り、share/ に残った 0 byte 中間ファイルをそのまま Drive にアップロードしてしまう。SSH コマンド全体の戻り値は最後の `upload.py` の exit 0 となるため、`cloud_shell.py` 側は成功扱いで `"calculation done"` を出力していた
+- **そもそもなぜ 0 byte ファイルが残ったか**: `linect.f:473` で `open(ifct,FILE=degfile,STATUS='replace')` が **計算開始時に空ファイルを作成**し、書き込みは `linect.f:848-852` の計算終盤の `close(unit=ifct)` までされない。何らかの理由で `close` 前に rank 0 が落ちつつ、しかし egs5mpirun 全体としては exit 0 を返して `touch /app/share/done` が走った場合に 0 byte が残る。本ケースでは 18 中 6 件発生しており、Spot 中断とは別の I/O 失敗パスがある可能性が高い（要追跡）
+- **影響**:
+  - Drive 上で「結合済み」「0 byte 中間」「ファイルなし」が混在し、後段の解析パイプラインが破綻する危険
+  - ログ上は `"calculation done. Uploaded to Drive"` と出るので失敗が見えない（**サイレント失敗**）
+- **対策 (2026-05-08 実装)**:
+  1. `cloud_shell.py:__merge_and_upload` の remote_script を `;` → **`&&`** に変更。`mergecsv.py` が成功したときだけ `upload.py` を呼ぶ。失敗時は SSH コマンド全体が非ゼロを返し、`cloud_shell.py` 側で `[ERROR] merge/upload failed` 経路に入る（VM は残されて手動回収可能）
+  2. `mergecsv.py` の glob フィルタに `os.path.getsize(f) > 0` を追加。0 byte の中間ファイルは結合対象から外し、IndexError を未然に防ぐ。ファイル自体は share/ に残るので手動調査は可能
+- **設計判断**: 0 byte ファイルを `mergecsv.py` 側で**削除はしない**。原因究明のために残骸を残す方針。代わりに「結合に使わない」「Drive に上げない」（&& で upload 抑止）で十分
+- **教訓**:
+  - シェル連結は `;` ではなく `&&` を使う。各段の成否を上位に伝える設計を徹底
+  - サイレント失敗を出さないため、SSH 経由のリモートスクリプトは「最後のコマンドの exit code がパイプライン全体の意味を反映する」構造にする
+  - 計算済み判定 (`done` ファイルの存在) は「計算が走り切った」ことだけを保証し、「出力が完全である」ことは保証しない。出力ファイルの妥当性検査は別レイヤーで担保する
 
 - OS: Rocky Linux 8
 - ユーザー: `zdc` (UID 1001, wheel/docker/google-sudoers グループ)

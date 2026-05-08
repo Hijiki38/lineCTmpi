@@ -562,9 +562,14 @@ echo "===ENV_DUMP_END===";
             return ''
 
     def __merge_and_upload(self):
+        # `;` で繋ぐと mergecsv.py の異常終了 (例: 0 byte 中間 CSV による IndexError) があっても
+        # upload.py が続行してしまい、未結合・空のままの中間ファイルが Drive に流れてしまう。
+        # 落とし穴 #19 (2026-05-08): 計算は done まで到達したが
+        # rank 0 の close(ifct) 前にプロセスが終わって 0 byte CSV が残ったケースで実際に発生。
+        # `&&` で繋ぎ、merge が成功したときだけ upload する。
         remote_script = (
-            f'cd {gdrive_dir_path}; '
-            f'python3 mergecsv.py {share_dir_path}; '
+            f'cd {gdrive_dir_path} && '
+            f'python3 mergecsv.py {share_dir_path} && '
             f'python3 upload.py {share_dir_path}'
         )
         merge_upload_cmd = [
