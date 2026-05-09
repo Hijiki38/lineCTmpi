@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import asyncio
+import datetime
 import parameter as p
 
 
@@ -84,6 +85,14 @@ gdrive_dir_path = p.gdrive_dir_path
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 GITHUB_REMOTE = 'github'  # VM 側の origin に対応するローカル側リモート名
+
+# VM 削除直前に吸い出す診断ログの保存先（落とし穴 #19 の根本原因究明のため）
+# memo/vmlogs/<instance>_<YYYYMMDD_HHMMSS>/ にテキストとして配置する
+LOG_BASE_DIR = os.path.join(REPO_ROOT, 'memo', 'vmlogs')
+
+# VM 側ログ吸い出しの SSH タイムアウト（秒）。Spot 中断で SSH 拒否される直前は
+# 諦めるためにベストエフォート扱いで短めに設定。
+PULL_LOGS_TIMEOUT_SEC = 30
 GITHUB_BRANCH = 'develop'  # VM 側で git reset --hard origin/develop する対象
 
 # VM 上の sed で更新される .env キーと、各キーに渡している値の対応。
@@ -530,6 +539,11 @@ echo "===ENV_DUMP_END===";
 
     def _abort_delete(self):
         """検証 NG 時の即時 VM 削除（__delete_instance のラッパ。例外は握りつぶす）"""
+        # 削除前に診断ログを吸い出す（自身の検証 NG なら prep 段階の証跡が取れる）
+        try:
+            self.__pull_logs('aborted')
+        except Exception as e:
+            print(f'[WARN] Instance {self.instance}: ログ吸い出しで例外 {e!r}（続行）')
         try:
             self.__delete_instance()
         except Exception as e:
@@ -578,6 +592,103 @@ echo "===ENV_DUMP_END===";
             f'--project={project_id}',
         ]
         return subprocess.run(merge_upload_cmd, shell=False).returncode
+
+    def __pull_logs(self, reason):
+        """VM 削除直前に診断ログを吸い出す（ベストエフォート）。
+
+        落とし穴 #19 (2026-05-08) の根本原因究明のための機構。
+        計算が `done` まで到達しているのに 0 byte CSV しか残らないケースが
+        頻発しており、VM 側の compose.log と share/ の状態を保全しないと
+        二度と確認できなくなる（VM 削除後）。
+
+        吸い出し対象（share の CSV 中身は不要なのでメタ情報のみ）:
+            - compose.log の中身（egs5mpirun の stdout/stderr 含む）
+            - share/ の `ls -la` 出力
+            - share/done の存在フラグ
+            - vmstat.log の中身
+            - share/*.csv のサイズ一覧（中身は除外）
+
+        SSH 失敗・タイムアウト・例外はすべて握りつぶす（VM 削除を止めない）。
+
+        Args:
+            reason: 呼び出し元を示すラベル ('done' / 'interrupted' / 'aborted')。
+                    保存ディレクトリ名に含めて後から経路が分かるようにする。
+        """
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        local_dir = os.path.join(
+            LOG_BASE_DIR, f'{self.instance}_{reason}_{timestamp}'
+        )
+        try:
+            os.makedirs(local_dir, exist_ok=True)
+        except OSError as e:
+            print(f'[PULL_LOGS] {self.instance}: 保存先作成失敗 {e!r} (スキップ)')
+            return
+
+        # リモートで 1 コマンドにまとめて stdout で受け取り、ローカルに書き出す。
+        # 各セクションを `===SECTION:NAME===` で区切り、後から分割しやすくする。
+        # 存在しないファイルは `(missing)` と明記して、見落としを防ぐ。
+        remote_script = (
+            f'set +e; '
+            f'echo ===SECTION:done_marker===; '
+            f'if [ -e {share_dir_path}done ]; then echo PRESENT; '
+            f'else echo ABSENT; fi; '
+            f'echo ===SECTION:share_ls===; '
+            f'ls -la {share_dir_path} 2>&1 || echo "(ls failed)"; '
+            f'echo ===SECTION:csv_sizes===; '
+            f'find {share_dir_path} -maxdepth 1 -name "*.csv" '
+            f'-printf "%s %f\\n" 2>&1 || echo "(find failed)"; '
+            f'echo ===SECTION:vmstat_log===; '
+            f'if [ -e {share_dir_path}vmstat.log ]; then '
+            f'cat {share_dir_path}vmstat.log; else echo "(missing)"; fi; '
+            f'echo ===SECTION:compose_log===; '
+            f'if [ -e /home/{user_name}/compose.log ]; then '
+            f'cat /home/{user_name}/compose.log; else echo "(missing)"; fi; '
+            f'echo ===SECTION:end==='
+        )
+        pull_cmd = [
+            *GCLOUD_CMD, 'compute', 'ssh', f'{user_name}@{self.instance}',
+            f'--zone={zone}', f'--command={remote_script}',
+            f'--project={project_id}',
+        ]
+
+        try:
+            proc = subprocess.run(
+                pull_cmd, shell=False,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                timeout=PULL_LOGS_TIMEOUT_SEC,
+            )
+        except subprocess.TimeoutExpired:
+            print(
+                f'[PULL_LOGS] {self.instance}: '
+                f'タイムアウト ({PULL_LOGS_TIMEOUT_SEC}s) — '
+                f'Spot 中断で SSH 拒否の可能性。スキップ'
+            )
+            return
+        except Exception as e:
+            print(f'[PULL_LOGS] {self.instance}: 例外 {e!r} (スキップ)')
+            return
+
+        stdout_text = proc.stdout.decode('utf-8', errors='replace')
+        stderr_text = proc.stderr.decode('utf-8', errors='replace')
+
+        try:
+            with open(
+                os.path.join(local_dir, 'diag.txt'), 'w',
+                encoding='utf-8', newline='\n',
+            ) as f:
+                f.write(f'# instance={self.instance} reason={reason}\n')
+                f.write(f'# returncode={proc.returncode}\n')
+                f.write(f'# timestamp={timestamp}\n')
+                f.write('===SECTION:ssh_stderr===\n')
+                f.write(stderr_text)
+                if not stderr_text.endswith('\n'):
+                    f.write('\n')
+                f.write(stdout_text)
+        except OSError as e:
+            print(f'[PULL_LOGS] {self.instance}: 書き込み失敗 {e!r}')
+            return
+
+        print(f'[PULL_LOGS] {self.instance}: -> {local_dir}')
 
     def __delete_instance(self):
         delete_instance_cmd = [
@@ -644,10 +755,14 @@ echo "===ENV_DUMP_END===";
             judge_complete_result = await loop.create_task(self.__judge_calc_complete())
 
             if judge_complete_result == 0:
-                # 計算完了 → CSV結合 + Drive アップロード → インスタンス削除
+                # 計算完了 → CSV結合 + Drive アップロード → ログ吸い出し → インスタンス削除
                 # アップロード失敗時はインスタンスを残し、計算結果のロストを防ぐ
                 upload_result = self.__merge_and_upload()
                 if upload_result == 0:
+                    # 削除前に診断ログを吸い出す（落とし穴 #19 の追跡用、ベストエフォート）
+                    await loop.create_task(
+                        asyncio.to_thread(self.__pull_logs, 'done')
+                    )
                     self.__delete_instance()
                     print(f"Instance {self.instance} calculation done. Uploaded to Drive and instance deleted.")
                 else:
@@ -669,6 +784,10 @@ echo "===ENV_DUMP_END===";
                     f"[INTERRUPTED] Instance {self.instance}: status='{status or 'UNKNOWN'}'. "
                     f"Spot 中断もしくは消滅を検知。当該タスクは中断扱いで打ち切ります。"
                     f"MIG から delete-instances で残骸ディスクを回収します。"
+                )
+                # 削除前に診断ログを吸い出す（VM が既に消滅していれば SSH 失敗で空振り）
+                await loop.create_task(
+                    asyncio.to_thread(self.__pull_logs, 'interrupted')
                 )
                 # 残骸ディスクの課金停止のため MIG 側からも明示削除する
                 # （既に消えていれば gcloud がエラーを返すが、戻り値は無視して続行）

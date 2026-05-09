@@ -3,3 +3,4 @@
 /output
 *.npz
 memo/*.log
+memo/vmlogs/
