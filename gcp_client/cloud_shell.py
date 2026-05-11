@@ -91,8 +91,10 @@ GITHUB_REMOTE = 'github'  # VM 側の origin に対応するローカル側リ�
 LOG_BASE_DIR = os.path.join(REPO_ROOT, 'memo', 'vmlogs')
 
 # VM 側ログ吸い出しの SSH タイムアウト（秒）。Spot 中断で SSH 拒否される直前は
-# 諦めるためにベストエフォート扱いで短めに設定。
-PULL_LOGS_TIMEOUT_SEC = 30
+# 諦めるためにベストエフォート扱い。egs5job.log は failed VM で 2.8MB ほど
+# あるため、米リージョン経由の cat + SSH 転送に余裕を持たせて 90 秒に設定
+# （2026-05-11: 30 秒 → 90 秒に拡大）。
+PULL_LOGS_TIMEOUT_SEC = 90
 GITHUB_BRANCH = 'develop'  # VM 側で git reset --hard origin/develop する対象
 
 # VM 上の sed で更新される .env キーと、各キーに渡している値の対応。
@@ -607,6 +609,9 @@ echo "===ENV_DUMP_END===";
             - share/done の存在フラグ
             - vmstat.log の中身
             - share/*.csv のサイズ一覧（中身は除外）
+            - share/egs5job.log の中身（EGS5 本体のログ。2026-05-11 追加。
+              failed VM で 2.8MB ほど。compose.log には MPI ランナの初期化
+              までしか残らず本計算の出力は egs5job.log にしか書かれない）
 
         SSH 失敗・タイムアウト・例外はすべて握りつぶす（VM 削除を止めない）。
 
@@ -640,6 +645,9 @@ echo "===ENV_DUMP_END===";
             f'echo ===SECTION:vmstat_log===; '
             f'if [ -e {share_dir_path}vmstat.log ]; then '
             f'cat {share_dir_path}vmstat.log; else echo "(missing)"; fi; '
+            f'echo ===SECTION:egs5job_log===; '
+            f'if [ -e {share_dir_path}egs5job.log ]; then '
+            f'cat {share_dir_path}egs5job.log; else echo "(missing)"; fi; '
             f'echo ===SECTION:compose_log===; '
             f'if [ -e /home/{user_name}/compose.log ]; then '
             f'cat /home/{user_name}/compose.log; else echo "(missing)"; fi; '
