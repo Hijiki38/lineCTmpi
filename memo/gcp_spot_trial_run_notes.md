@@ -62,7 +62,9 @@
 | 本番再実行（ステップC、10回目挑戦, egs5job.log 付きで原因究明） | ❌ **失敗 (2026-05-11 夜)**。8 投影全 VM が Spot 中断 (`interrupted`)。done 不達で Drive アップロードゼロ、`__pull_logs` も SSH 拒否で空振り (returncode=1, 17 行のみ)。最長でも 4 時間で全 VM 中断 |
 | 本番再実行（ステップC、11回目挑戦, 時間帯を変えて投入） | ❌ **失敗 (2026-05-12 朝, JST 08:25 ≒ CDT 18:25)**。8 投影全 VM が Spot 中断。最長 2 時間で全滅。**時間帯仮説は棄却**、us-central1-b の容量需給が慢性的に逼迫していると判明 |
 | **us-central1-b → us-central1-c へゾーン移行** | ✅ **完了 (2026-05-12)**。同リージョン内別ゾーンへ移行（quota は region 単位なので再申請不要）。旧 MIG 削除 → 新 MIG `linectmpi` を `us-central1-c` に `--default-action-on-vm-failure=do-nothing` 付きで作成。落とし穴 #20 参照 |
-| 本番再実行（ステップC、12回目挑戦, us-central1-c で投入） | 🔜 次の作業（parameter.py の zone を `us-central1-c` に切替済み。par_missing_indices=[4,8,17,21,29,33,42,46] のまま投入） |
+| 本番再実行（ステップC、12回目挑戦, us-central1-c で投入） | ❌ **失敗 (2026-05-12 夜)**。8 投影全 VM がほぼ同時刻 (JST 19:41) に Spot 中断。**ゾーン変更でも改善せず**、c3-highcpu-4 の Spot 容量がリージョン全体で逼迫していると判明 |
+| **Spot → オンデマンドに切替** | ✅ **完了 (2026-05-12)**。新テンプレート `linectmpi-c3h4-ondemand` (`provisioningModel=STANDARD`) を作成し、MIG のテンプレートを差し替え。これで Spot 中断ゼロで完走確実になる代わりにコストが約 4 倍 (50 投影で約 $80 → $320)。落とし穴 #21 参照 |
+| 本番再実行（ステップC、13回目挑戦, オンデマンドで投入） | 🔜 次の作業（同じ 8 投影 i=[4,8,17,21,29,33,42,46] を投入。完走確実なので 0 byte 問題が起きるかどうかも検証できる） |
 
 ## 最終方針（確定）
 
@@ -271,8 +273,9 @@ quota=100 vCPU 制約で並列度 ≤ 25。**現行計画は `par_xstp=1` で1�
 | サービスアカウント `linectmpi-uploader@...` | ✅ 作成済み (2026-04-27) |
 | Drive 共有フォルダへのSA招待 | ✅ 完了 (コンテンツ管理者) |
 | カスタムイメージ `linectmpi-image-v2` (family=`linectmpi`) | ✅ 作成済み (2026-04-29)。Google API libs は焼き込まず起動時 install |
-| インスタンステンプレート `linectmpi-c3h4-spot` | ✅ 作成済み (2026-04-27, SA + Drive scope付き) |
-| MIG `linectmpi` (zone=us-central1-c, size=0) | ✅ 作成済み (2026-05-12)、`defaultActionOnFailure=DO_NOTHING` 付き。**旧 us-central1-b の MIG は同日削除**（Spot 中断率が慢性的に高いため、落とし穴 #20 参照） |
+| インスタンステンプレート `linectmpi-c3h4-spot` | ✅ 作成済み (2026-04-27, SA + Drive scope付き)。**現在は未使用** (落とし穴 #21 で `linectmpi-c3h4-ondemand` に切替) |
+| インスタンステンプレート `linectmpi-c3h4-ondemand` | ✅ 作成済み (2026-05-12)。`provisioningModel=STANDARD`、`preemptible=false`、`onHostMaintenance=TERMINATE`。SA・scope は spot 版と同一。**現在 MIG が参照している**のはこちら |
+| MIG `linectmpi` (zone=us-central1-c, size=0) | ✅ 作成済み (2026-05-12)、`defaultActionOnFailure=DO_NOTHING` 付き。**旧 us-central1-b の MIG は同日削除**（落とし穴 #20）。**2026-05-12 にテンプレートを `linectmpi-c3h4-ondemand` に差し替え**（落とし穴 #21） |
 
 ## 欠損補完モード（2026-05-07追加）
 
@@ -598,6 +601,45 @@ missing_i = sorted(set(range(50)) - set(done_i))
   - GCP Spot の中断率は**ゾーン需給に強く依存**し、時間帯だけでは説明できない慢性的な逼迫がある
   - 同リージョン内でゾーンを変えるのは最小コストの対策（quota 再申請不要、イメージ・テンプレ流用）。長期計算の Spot 利用ではゾーン分散も検討する余地がある
   - MIG 作成時に `--default-action-on-vm-failure=do-nothing` を**最初から**付ける（落とし穴 #18 を踏まない）。`gcloud compute instance-groups managed describe ... --format="value(instanceLifecyclePolicy.defaultActionOnFailure)"` で必ず `DO_NOTHING` を確認する
+
+### 21. ゾーン変更でも Spot が完走しないため Spot を諦めてオンデマンドに切替（2026-05-12）
+
+- **症状**: 落とし穴 #20 で `us-central1-b → us-central1-c` にゾーン移行したが、12 回目挑戦 (2026-05-12) でも 8 VM 全 VM が JST 19:41 にほぼ同時刻で Spot 中断。3 回連続 (b × 2 + c × 1) で全滅
+- **診断**: 「同時刻一斉中断」のパターンが両ゾーンで共通＝ゾーン需給ではなく、**`c3-highcpu-4` の Spot 容量がリージョン全体で慢性的に逼迫**していると判断。時間帯仮説（落とし穴 #20）に続いてゾーン仮説も棄却
+- **判断**: Spot 戦略の継続は損切り。8.5h × 8 VM が連続で全滅する現状では、コストを掛けても完走確実なオンデマンドに切り替える方が結果的に安い（再投入で課金が累積するうえ、いつ完走するか見通しが立たない）
+- **検討した代替案と却下理由**:
+  - **マシンタイプ変更 (E2/N2 系)**: c3 系特有の Spot 容量問題から外れる可能性はあるが、性能低下で 8.5h → 10〜12h になる試算。中断率も保証されないので試行コストが嵩む。**最終的にオンデマンドに行き着く確度が高い**ので直接オンデマンドへ
+  - **リージョン跨ぎ (us-east1, asia-northeast1)**: `PREEMPTIBLE_CPUS=0` で quota 申請が必要、承認まで数日〜数週間待ち。今は時間を優先
+  - **par_hist 半減 + 投影数倍**: 統計精度を維持しつつ計算時間を短縮できるが、Spot 中断が 1〜2 時間で発生する状況では依然全滅リスクあり。設計変更コストも掛かる
+- **対策 (2026-05-12 実装)**:
+  1. オンデマンド版テンプレートを新規作成:
+     ```
+     gcloud compute instance-templates create linectmpi-c3h4-ondemand \
+         --project=linectmpi-401502 \
+         --machine-type=c3-highcpu-4 \
+         --image-family=linectmpi --image-project=linectmpi-401502 \
+         --service-account=linectmpi-uploader@linectmpi-401502.iam.gserviceaccount.com \
+         --scopes=https://www.googleapis.com/auth/drive \
+         --no-restart-on-failure --maintenance-policy=TERMINATE
+     ```
+     ポイント:
+     - `--provisioning-model` を指定しない → デフォルト `STANDARD` (オンデマンド)
+     - `--no-restart-on-failure` で `automaticRestart: false`（Spot 版と同じ）
+     - `--maintenance-policy=TERMINATE` は c3 系の必須設定 (LIVE_MIGRATE 不可)
+     - SA・scope は Spot 版から完全踏襲
+  2. 既存 MIG `linectmpi` (us-central1-c) のテンプレートを差し替え:
+     ```
+     gcloud compute instance-groups managed set-instance-template linectmpi \
+         --project=linectmpi-401502 --zone=us-central1-c \
+         --template=linectmpi-c3h4-ondemand
+     ```
+- **コード変更**: なし。`parameter.py` は変更不要 (MIG 経由でテンプレートが切り替わるため)。`cloud_shell.py` の中断検知・ログ吸い出し機構もそのまま残す（オンデマンドでもホストメンテで稀に止まる可能性はあるので保険として）
+- **コスト試算**: Spot $0.0245/h × 4 vCPU vs オンデマンド $0.176/h × 4 vCPU → **約 7.2 倍**。8.5h × 25 台 × 2 バッチ = 425 vCPU·h 換算で、Spot $42 → オンデマンド $300 強。50 投影完走で約 $320。3 回連続全滅で既に $50〜80 程度 Spot 課金している状況を考えると、完走確実なオンデマンドで決着させる方が合理的
+- **Spot 版テンプレートの扱い**: `linectmpi-c3h4-spot` は削除せず温存（将来再挑戦の余地、または他用途で使う可能性のため）。MIG が参照していなければ課金は発生しない
+- **教訓**:
+  - **Spot は計算時間 < 1 時間程度の短時間ジョブ向け**。8.5h など 1 タスクが長時間に渡る場合、Spot 中断率次第で完走不能になる。あらかじめチェックポイント機構を組み込まないなら、長時間ジョブはオンデマンドが前提
+  - 同種の障害が「ゾーン変更」「時間帯変更」両方で改善しない場合、**より上位の構造的問題**（マシンタイプの Spot 容量、Spot 自体の本質的非保証性）を疑うべき。同じ原因の対策を 3 回連続で空振りしたら撤退判断
+  - 損切りラインを事前に設定する（例: 「Spot で 3 回連続全滅したらオンデマンドに切替」）と判断が遅れない
 
 - OS: Rocky Linux 8
 - ユーザー: `zdc` (UID 1001, wheel/docker/google-sudoers グループ)
