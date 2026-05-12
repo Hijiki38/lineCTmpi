@@ -59,7 +59,10 @@
 | **VM 側ログ吸い出し機構追加 (`__pull_logs`)** | ✅ **完了 (2026-05-09)**。VM 削除直前に compose.log / share の ls -la / done フラグ / vmstat.log / CSV サイズ一覧を SSH で取得し `memo/vmlogs/<instance>_<reason>_<timestamp>/diag.txt` に保存。3 経路 (done/interrupted/aborted) で呼び出し、30 秒タイムアウトのベストエフォート。落とし穴 #19 続報参照 |
 | 本番再実行（ステップC、9回目挑戦, ログ吸い出し付きで原因究明） | ❌ **失敗 (2026-05-10)**。10投影中 2 投影のみ結合済み (i=12,16)、8 投影が 0 byte (i=4,8,17,21,29,33,42,46)。前回と成否が反転＝投影番号依存ではない。**`compose.log` は MPI ランナの初期化のみで本計算の出力は含まれず**、真のログは `share/egs5job.log` にあると判明 (failed VM で 2.78〜2.80MB の同一サイズ、成功 VM で 374KB/1.6MB)。落とし穴 #19 続報2 参照 |
 | **`__pull_logs` に `egs5job.log` 取得を追加** | ✅ **完了 (2026-05-11)**。EGS5 本体のログである `share/egs5job.log` も吸い出し対象に追加。タイムアウトを 30 秒 → 90 秒に拡大（2.8MB の cat + SSH 転送に余裕を持たせる）。落とし穴 #19 続報2 参照 |
-| 本番再実行（ステップC、10回目挑戦, egs5job.log 付きで原因究明） | 🔜 次の作業（同じ 10 投影を再投入して `egs5job.log` を解析、Monte Carlo メインループのどこで止まっているか確認） |
+| 本番再実行（ステップC、10回目挑戦, egs5job.log 付きで原因究明） | ❌ **失敗 (2026-05-11 夜)**。8 投影全 VM が Spot 中断 (`interrupted`)。done 不達で Drive アップロードゼロ、`__pull_logs` も SSH 拒否で空振り (returncode=1, 17 行のみ)。最長でも 4 時間で全 VM 中断 |
+| 本番再実行（ステップC、11回目挑戦, 時間帯を変えて投入） | ❌ **失敗 (2026-05-12 朝, JST 08:25 ≒ CDT 18:25)**。8 投影全 VM が Spot 中断。最長 2 時間で全滅。**時間帯仮説は棄却**、us-central1-b の容量需給が慢性的に逼迫していると判明 |
+| **us-central1-b → us-central1-c へゾーン移行** | ✅ **完了 (2026-05-12)**。同リージョン内別ゾーンへ移行（quota は region 単位なので再申請不要）。旧 MIG 削除 → 新 MIG `linectmpi` を `us-central1-c` に `--default-action-on-vm-failure=do-nothing` 付きで作成。落とし穴 #20 参照 |
+| 本番再実行（ステップC、12回目挑戦, us-central1-c で投入） | 🔜 次の作業（parameter.py の zone を `us-central1-c` に切替済み。par_missing_indices=[4,8,17,21,29,33,42,46] のまま投入） |
 
 ## 最終方針（確定）
 
@@ -269,7 +272,7 @@ quota=100 vCPU 制約で並列度 ≤ 25。**現行計画は `par_xstp=1` で1�
 | Drive 共有フォルダへのSA招待 | ✅ 完了 (コンテンツ管理者) |
 | カスタムイメージ `linectmpi-image-v2` (family=`linectmpi`) | ✅ 作成済み (2026-04-29)。Google API libs は焼き込まず起動時 install |
 | インスタンステンプレート `linectmpi-c3h4-spot` | ✅ 作成済み (2026-04-27, SA + Drive scope付き) |
-| MIG `linectmpi` (zone=us-central1-b, size=0) | ✅ 作成済み (2026-04-27)、自動フロー実績あり |
+| MIG `linectmpi` (zone=us-central1-c, size=0) | ✅ 作成済み (2026-05-12)、`defaultActionOnFailure=DO_NOTHING` 付き。**旧 us-central1-b の MIG は同日削除**（Spot 中断率が慢性的に高いため、落とし穴 #20 参照） |
 
 ## 欠損補完モード（2026-05-07追加）
 
@@ -576,6 +579,25 @@ missing_i = sorted(set(range(50)) - set(done_i))
   - 「コンソール出力」と「アプリケーション本体のログファイル」は別物。MPI ランナの stdout/stderr (compose.log) はラッパの初期化までしか反映されない場合があり、本計算の動向は**別ファイル（egs5job.log）**にしか書かれない
   - ログ吸い出し機構の初版で「主要そうに見える」compose.log だけを取ったのは見落とし。**share/ 配下を ls した時点で見えていた `egs5job.log` を最初から取り込むべきだった**（ls 結果は取れていたが、内容を吸う対象に入れていなかった）
   - 失敗パターンが**ピーキーに同一**になる現象は、ランダム要因ではなく決定論的な障害を示唆する。「8 件中 8 件が 2.8MB ± 0.01MB」は偶然ではない
+
+### 20. us-central1-b の Spot 容量が慢性的に逼迫していて 8.5h 計算が完走できない（2026-05-11〜12）
+
+- **症状**: `par_missing_indices=[4,8,17,21,29,33,42,46]` (8 投影) を 2 回連続投入したがいずれも 8 VM 全滅
+  - 1 回目 (2026-05-11 22:58 JST 投入 ≒ CDT 08:58 開始): 最長 4 時間で全 VM 中断、Drive アップロードゼロ
+  - 2 回目 (2026-05-12 08:25 JST 投入 ≒ CDT 18:25 開始): 最長 2 時間で全 VM 中断、Drive アップロードゼロ
+- **診断**: いずれも `__pull_logs` は呼ばれたが VM が既に死んでおり `returncode=1`、`FATAL ERROR: Remote side unexpectedly closed network connection` でログ取得は空振り（17 行のみ）。ステータスチェックで `TERMINATED` を検知してタスクを `[INTERRUPTED]` 経路で打ち切り、MIG 側からも明示削除（落とし穴 #18 対策が動作）
+- **時間帯仮説の棄却**: 米中西部の業務時間帯（CDT 朝）と夕方〜夜（CDT 夕方）の両方で同様の展開。8.5 時間計算が必要なのに Spot VM の平均寿命が 1〜4 時間しかない。これは **us-central1-b の容量需給の問題**であって時間帯では解決できない
+- **対策 (2026-05-12 実装)**: MIG を `us-central1-b` から `us-central1-c` に移行
+  1. 既存 MIG 削除: `gcloud compute instance-groups managed delete linectmpi --zone=us-central1-b ...`
+  2. 新 MIG 作成: `gcloud compute instance-groups managed create linectmpi --zone=us-central1-c --template=linectmpi-c3h4-spot --size=0 --default-action-on-vm-failure=do-nothing ...`
+  3. `parameter.py` の `zone` を `us-central1-b` → `us-central1-c` に変更
+- **選定理由**: `us-central1` リージョン内別ゾーン（a/c/f）は **quota がリージョン単位なので再申請不要**。他リージョン (`us-east1`, `asia-northeast1` 等) は `PREEMPTIBLE_CPUS=0` で再申請が必要。経験則として `-c` が比較的需給安定とされるため `-c` を選択
+- **イメージ・テンプレートの扱い**: カスタムイメージ `linectmpi-image-v2` とインスタンステンプレート `linectmpi-c3h4-spot` は**ゾーン非依存**（前者は global、後者も global リソース）なのでそのまま流用可能。MIG だけがゾーン縛り
+- **ロールバック先**: `-c` でも容量不足なら `us-central1-a` または `us-central1-f` に同じ手順で切り替え
+- **教訓**:
+  - GCP Spot の中断率は**ゾーン需給に強く依存**し、時間帯だけでは説明できない慢性的な逼迫がある
+  - 同リージョン内でゾーンを変えるのは最小コストの対策（quota 再申請不要、イメージ・テンプレ流用）。長期計算の Spot 利用ではゾーン分散も検討する余地がある
+  - MIG 作成時に `--default-action-on-vm-failure=do-nothing` を**最初から**付ける（落とし穴 #18 を踏まない）。`gcloud compute instance-groups managed describe ... --format="value(instanceLifecyclePolicy.defaultActionOnFailure)"` で必ず `DO_NOTHING` を確認する
 
 - OS: Rocky Linux 8
 - ユーザー: `zdc` (UID 1001, wheel/docker/google-sudoers グループ)

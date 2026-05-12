@@ -1,6 +1,6 @@
 # GCP用パラメータ
 project_id = 'linectmpi-401502'	# プロジェクトID（VM/MIG/イメージが配置されているプロジェクト）
-zone = 'us-central1-b'	# インスタンスグループを作成したZONE
+zone = 'us-central1-c'	# インスタンスグループを作成したZONE（2026-05-12: -b の Spot 中断率が慢性的に高いため -c に移行）
 instance_group_name = 'linectmpi'	# インスタンスグループ名
 user_name = "zdc"   # インスタンスで作成した共有ユーザ名
 repository_name = "lineCTmpi" # git cloneしたリポジトリ名
