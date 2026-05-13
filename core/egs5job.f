@@ -1672,7 +1672,9 @@ c         write(*,*) 'srzone:3'
  9200 format(' TVAL ERROR : iq,ir,x,y,z,u,v,w,tval=',2I3,1P7E12.5)
           idisc=1
           itverr=itverr+1
-          if(itverr.ge.10000) then
+!         閾値を 10000 → 10000000 に拡大 (2026-05-14, 落とし穴 #19 続報3)
+!         本番5000万フォトンでは TVAL ERROR が約 2 万件発生し旧閾値で stop していた
+          if(itverr.ge.10000000) then
             stop
           end if
           return
