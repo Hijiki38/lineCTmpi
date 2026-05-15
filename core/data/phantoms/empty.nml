@@ -1,5 +1,5 @@
 &GEOMETRY
-  ph_bg_radius = 0.0
+  ph_bg_radius = 1.0
   ph_cyl_y0 = -0.75
   ph_cyl_dy = 1.5
   ph_n_rcc = 0
@@ -9,5 +9,5 @@
   ph_nmed = 7
   ph_medarr = 'CDTE', 'AIR-AT-NTP', 'AL', 'TI', 'CU', 'H2O', 'C'
   ph_chard  = 0.01, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
-  ph_bg_med = 0
+  ph_bg_med = 2
 /
