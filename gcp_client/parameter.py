@@ -1,11 +1,11 @@
 # GCP用パラメータ
-project_id = 'linectmpi-401502'	# プロジェクトID（VM/MIG/イメージが配置されているプロジェクト）
+project_id = 'linectmpi-401502'	  # プロジェクトID（VM/MIG/イメージが配置されているプロジェクト）
 zone = 'us-central1-c'	# インスタンスグループを作成したZONE（2026-05-12: -b の Spot 中断率が慢性的に高いため -c に移行）
 instance_group_name = 'linectmpi'	# インスタンスグループ名
 user_name = "zdc"   # インスタンスで作成した共有ユーザ名
-repository_name = "lineCTmpi" # git cloneしたリポジトリ名
-num_instance = 25	# 同時実行するインスタンス数（本番: quota=100 vCPU 制約で25台運用）
-poling_timer = 30	# 処理待ち時の待機時間(sec)
+repository_name = "lineCTmpi"   # git cloneしたリポジトリ名
+num_instance = 1   #25	# 同時実行するインスタンス数（本番: quota=100 vCPU 制約で25台運用）
+poling_timer = 30	 # 処理待ち時の待機時間(sec)
 
 # 計算用パラメータ（本番: 50投影 × 5000万フォトン、25台 × 1投影/台 × 2バッチで計50投影）
 # 規模半減＋par_xstp=1で1台連続稼働を約8.5hに短縮しSpot中断耐性を強化（2026-05-01 改定）
@@ -14,7 +14,7 @@ par_sod = 11.6	# 線源ー被写体間距離(cm)
 par_sdd = 50	# 線源ー検出器間距離(cm)
 par_ptch = 0.01	# ピクセルの大きさ(cm)
 par_ttms = 512	# ピクセル数
-par_step = 50	# 投影数（本番: 50投影、コスト半減のため100→50に削減）
+par_step = 1    #50	# 投影数（本番: 50投影、コスト半減のため100→50に削減）
 par_hist = 50_000_000	# 光子数（本番: 1投影あたり5000万フォトン、コスト半減のため1億→5000万に削減）
 par_istp = 0	# 開始投影数（バッチ毎に +25 して再実行: 0 → 25）
 par_xstp = 1	# 1インスタンス当たりの投影枚数（25台×1投影 = 1バッチで25投影、2バッチで計50投影）
@@ -34,7 +34,8 @@ par_beam = 1	# ビーム(0:Parallel, 1:Fan)
 # 値は i 値 (0..par_step-1)。Drive 上のファイル名は EGS5 が int(i*360/par_step) で生成した角度
 # なので、欠損角度から i = round(angle * par_step / 360) で逆変換した値を入れる
 # 例: 角度 0,7,28,50,... → i=0,1,4,7,... (par_step=50 のとき angle = int(i*7.2))
-par_missing_indices = [4, 8, 17, 21, 29, 33, 42, 46]
+# par_missing_indices = [4, 8, 17, 21, 29, 33, 42, 46]
+par_missing_indices = []
 
 # ファイル操作用パラメータ
 calc_dir_path = f'/home/{user_name}/{repository_name}/core/' # dockerを起動し計算を行うディレクトリのパス（"/"まで）
