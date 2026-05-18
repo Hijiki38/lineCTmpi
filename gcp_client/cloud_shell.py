@@ -418,6 +418,9 @@ class Instance:
 cd /home/{user_name}/{repository_name};
 git fetch origin develop;
 git reset --hard origin/develop;
+cd {calc_dir_path};
+docker-compose build;
+cd /home/{user_name}/{repository_name};
 if ! python3 -c 'import googleapiclient' 2>/dev/null; then
   sudo pip3 install --prefix=/usr google-api-python-client google-auth google-auth-httplib2 google-auth-oauthlib;
 fi;
