@@ -34,8 +34,8 @@ par_beam = 1	# ビーム(0:Parallel, 1:Fan)
 # 値は i 値 (0..par_step-1)。Drive 上のファイル名は EGS5 が int(i*360/par_step) で生成した角度
 # なので、欠損角度から i = round(angle * par_step / 360) で逆変換した値を入れる
 # 例: 角度 0,7,28,50,... → i=0,1,4,7,... (par_step=50 のとき angle = int(i*7.2))
-# par_missing_indices = [4, 8, 17, 21, 29, 33, 42, 46]
-par_missing_indices = []
+par_missing_indices = [4, 8, 17, 21, 29, 33, 42, 46]
+# par_missing_indices = []
 
 # ファイル操作用パラメータ
 calc_dir_path = f'/home/{user_name}/{repository_name}/core/' # dockerを起動し計算を行うディレクトリのパス（"/"まで）
